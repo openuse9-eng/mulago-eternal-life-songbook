@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111111">
+<meta name="description" content="Mulago Eternal Life Gospel Church professional offline hymn book and online sermons.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/icon-192.png">
+<title>Mulago Eternal Life Gospel Church Songbook</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+<header class="topbar">
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
+  <div class="brand-mini">MELGC SONGBOOK</div>
+  <button class="icon-btn" id="themeBtn" aria-label="Theme">◐</button>
+</header>
+<main>
+<section id="home" class="screen active">
+  <div class="hero">
+    <img src="assets/church-logo.png" class="church-logo" alt="Mulago Eternal Life Gospel Church logo">
+    <h1>Mulago Eternal Life Gospel Church</h1>
+    <p class="tagline">Professional Church Songbook</p>
+  </div>
+  <div class="home-grid">
+    <button class="home-card" data-screen="english"><span>📖</span><b>English Hymns</b><small>479 hymns · Offline</small></button>
+    <button class="home-card" data-screen="luganda"><span>📗</span><b>Luganda Hymns</b><small>222 hymns · Offline</small></button>
+    <button class="home-card" data-screen="sermons"><span>🎥</span><b>Video Sermons</b><small>Online · Internet required</small></button>
+    <button class="home-card" data-screen="favorites"><span>⭐</span><b>Favourites</b><small>Your saved hymns</small></button>
+  </div>
+  <div class="notice"><b>Offline ready</b><br>English and Luganda hymns are stored on this device after the app has been opened once.</div>
+</section>
+
+<section id="english" class="screen">
+  <div class="section-head"><button class="back">←</button><div><h2>English Hymns</h2><p>479 hymns</p></div></div>
+  <div class="search"><span>⌕</span><input id="searchEn" placeholder="Search number or title…"></div>
+  <div id="listEn" class="hymn-list"></div>
+</section>
+
+<section id="luganda" class="screen">
+  <div class="section-head"><button class="back">←</button><div><h2>Luganda Hymns</h2><p>222 hymns</p></div></div>
+  <div class="search"><span>⌕</span><input id="searchLg" placeholder="Noonya ennamba oba erinnya…"></div>
+  <div id="listLg" class="hymn-list"></div>
+</section>
+
+<section id="favorites" class="screen">
+  <div class="section-head"><button class="back">←</button><div><h2>Favourites</h2><p>Saved hymns</p></div></div>
+  <div id="favList" class="hymn-list"></div>
+</section>
+
+<section id="sermons" class="screen">
+  <div class="section-head"><button class="back">←</button><div><h2>Video Sermons</h2><p>Online ministry</p></div></div>
+  <div class="sermon-intro"><span>🎥</span><div><b>Watch church sermons online</b><p>Internet connection is required for videos.</p></div></div>
+  <div id="sermonList" class="sermon-list"></div>
+</section>
+
+<section id="about" class="screen">
+  <div class="section-head"><button class="back">←</button><div><h2>About</h2><p>Church information</p></div></div>
+  <div class="about-card"><img src="assets/church-logo.png" alt="Church logo"><h3>Mulago Eternal Life Gospel Church</h3><p>This Songbook provides offline access to English and Luganda hymns, with an online section for video sermons.</p><p class="muted">Version 1.0 · Offline hymn database</p></div>
+</section>
+</main>
+<nav class="bottom-nav">
+  <button data-screen="home" class="nav-active">⌂<small>Home</small></button>
+  <button data-screen="english">📖<small>English</small></button>
+  <button data-screen="luganda">📗<small>Luganda</small></button>
+  <button data-screen="sermons">🎥<small>Sermons</small></button>
+  <button data-screen="favorites">⭐<small>Saved</small></button>
+</nav>
+<div id="reader" class="reader" aria-hidden="true">
+  <div class="reader-top"><button id="closeReader">←</button><div id="readerTitle"></div><button id="favReader">☆</button></div>
+  <div class="reader-actions"><button id="smaller">A−</button><button id="resetFont">A</button><button id="larger">A+</button><span id="readerKey"></span></div>
+  <article id="readerBody"></article>
+  <div class="reader-bottom"><button id="prevHymn">‹ Previous</button><button id="nextHymn">Next ›</button></div>
+</div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
