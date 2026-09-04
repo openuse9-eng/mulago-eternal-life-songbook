@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -12,6 +13,7 @@
 </head>
 <body>
 <div id="app">
+<div id="installBanner" class="install-banner" hidden><div><b>Install MELGC Songbook</b><span>Keep the hymn book on your home screen for quick access.</span></div><button id="installBtn">Install</button><button id="dismissInstall" aria-label="Dismiss">×</button></div>
 <header class="topbar">
   <button class="icon-btn" id="menuBtn" aria-label="Menu">☰</button>
   <div class="brand-mini">MELGC SONGBOOK</div>
@@ -58,7 +60,7 @@
 
 <section id="about" class="screen">
   <div class="section-head"><button class="back">←</button><div><h2>About</h2><p>Church information</p></div></div>
-  <div class="about-card"><img src="assets/church-logo.png" alt="Church logo"><h3>Mulago Eternal Life Gospel Church</h3><p>This Songbook provides offline access to English and Luganda hymns, with an online section for video sermons.</p><p class="muted">Version 1.0 · Offline hymn database</p></div>
+  <div class="about-card"><img src="assets/church-logo.png" alt="Church logo"><h3>Mulago Eternal Life Gospel Church</h3><p>This Songbook provides offline access to English and Luganda hymns, with an online section for video sermons.</p><div class="about-details"><p><b>English:</b> 1245 hymns</p><p><b>Luganda:</b> 222 hymns</p><p><b>Hymns:</b> Available offline after the first successful load</p><p><b>Sermons:</b> Available online through the church YouTube channel</p></div><button class="share-btn" id="shareApp">Share Songbook</button><p class="muted">Version 2.1 · MELGC Songbook</p></div>
 </section>
 </main>
 <nav class="bottom-nav">
