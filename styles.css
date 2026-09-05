@@ -2,3 +2,6 @@
 .reader article .stanza{margin:0 0 1.05em}
 .reader article .lyric-heading{margin:0 0 1.05em;font-weight:800}
 .reader article .lyric-heading strong{font-weight:900}
+.sermon-player{position:relative;width:100%;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#000;margin-top:10px}
+.sermon-player iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.sermon-label{font-weight:800;color:#e5c86b}
