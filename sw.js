@@ -1,4 +1,4 @@
-const CACHE='melgc-songbook-v6';
+const CACHE='melgc-songbook-v7';
 const ASSETS=['./','./index.html','./styles.css','./app.js','./manifest.webmanifest','./hymns-en.json','./hymns-lg.json','./assets/church-logo.png','./assets/icon-192.png','./assets/icon-512.png'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));
