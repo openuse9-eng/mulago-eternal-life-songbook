@@ -1,3 +1,11 @@
+
+// Auto-fix malformed hymn records where lyrics were accidentally stored in the key field
+if (h && typeof h.key === 'string' && h.key.includes('\n')) {
+  const parts = h.key.split('\n');
+  h.key = parts.shift().trim();
+  h.lyrics = parts.join('\n') + '\n\n' + (h.lyrics || '');
+}
+
 const state={lang:'en',hymns:{en:[],lg:[]},currentIndex:0,currentLang:'en',font:Number(localStorage.getItem('melgc-font')||19)};
 const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
 function cleanText(s){return String(s||'').replace(/\r/g,'').replace(/[\u00a0\t]+/g,' ').replace(/\}\s*/g,' ').replace(/\s*\{/g,'').replace(/\s{2,}/g,' ').trim()}
@@ -56,22 +64,3 @@ function applyFont(){$('#readerBody').style.fontSize=state.font+'px';localStorag
 $('#smaller').addEventListener('click',()=>{state.font=Math.max(14,state.font-2);applyFont()});$('#larger').addEventListener('click',()=>{state.font=Math.min(34,state.font+2);applyFont()});$('#resetFont').addEventListener('click',()=>{state.font=19;applyFont()});
 load().then(()=>applyFont());
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js'));
-
-// Luganda uses the same professional list format as English.
-function renderList(lang,q){
-  const box=lang==='en'?$('#listEn'):$('#listLg');
-  const term=q.trim().toLowerCase();
-  const arr=state.hymns[lang].filter(h=>!term||String(h.number).includes(term)||String(h.title||'').toLowerCase().includes(term));
-  box.innerHTML=arr.map(h=>{
-    const first=String(h.lyrics||'').split(/\n+/).map(x=>x.trim()).find(Boolean)||'';
-    return `<button class="hymn-row english-row" data-lang="${lang}" data-num="${h.number}">
-      <span class="num">${h.number}</span>
-      <span class="row-main">
-        <span class="row-title">${esc(h.title)}</span>
-        <span class="row-preview">${esc(first)}</span>
-      </span>
-      <span class="row-fav">☆</span>
-    </button>`;
-  }).join('')||'<div class="empty">No hymns found.</div>';
-  box.querySelectorAll('.hymn-row').forEach(x=>x.addEventListener('click',()=>openHymn(lang,Number(x.dataset.num))));
-}
