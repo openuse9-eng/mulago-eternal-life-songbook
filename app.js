@@ -1,10 +1,5 @@
 
-// Auto-fix malformed hymn records where lyrics were accidentally stored in the key field
-if (h && typeof h.key === 'string' && h.key.includes('\n')) {
-  const parts = h.key.split('\n');
-  h.key = parts.shift().trim();
-  h.lyrics = parts.join('\n') + '\n\n' + (h.lyrics || '');
-}
+
 
 const state={lang:'en',hymns:{en:[],lg:[]},currentIndex:0,currentLang:'en',font:Number(localStorage.getItem('melgc-font')||19)};
 const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
