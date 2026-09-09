@@ -26,47 +26,49 @@
     <p class="tagline">Professional Church Songbook</p>
   </div>
   <div class="home-grid">
-    <button class="home-card" data-screen="english"><span>📖</span><b>English Hymns</b><small>1194 hymns · Offline</small></button>
+    <button class="home-card" data-screen="english"><span>📖</span><b>English Hymns</b><small>1245 hymns · Offline</small></button>
     <button class="home-card" data-screen="luganda"><span>📗</span><b>Luganda Hymns</b><small>222 hymns · Offline</small></button>
-    <button class="home-card" data-screen="sermons"><span>🎥</span><b>Sunday Services</b><small>Watch online · Internet required</small></button>
+    <button class="home-card" data-screen="sermons"><span>🎥</span><b>Video Sermons</b><small>Online · Internet required</small></button>
+    <button class="home-card" data-screen="programme"><span>🗓️</span><b>Service Programme</b><small>Weekly schedule · Offline</small></button>
     <button class="home-card" data-screen="favorites"><span>⭐</span><b>Favourites</b><small>Your saved hymns</small></button>
   </div>
-  <div class="notice"><b>Offline ready</b><br>English and Luganda hymns are stored on this device after the app has been opened once.</div>
+  <div class="notice"><b>Offline ready</b><br>English and Luganda hymns and the weekly service programme are stored on this device after the app has been opened once.</div>
 </section>
-
 <section id="english" class="screen">
-  <div class="section-head"><button class="back">←</button><div><h2>English Hymns</h2><p>1194 hymns</p></div></div>
+  <div class="section-head"><button class="back">←</button><div><h2>English Hymns</h2><p>1245 hymns</p></div></div>
   <div class="search"><span>⌕</span><input id="searchEn" placeholder="Search number or title…"></div>
   <div id="listEn" class="hymn-list"></div>
 </section>
-
 <section id="luganda" class="screen">
   <div class="section-head"><button class="back">←</button><div><h2>Luganda Hymns</h2><p>222 hymns</p></div></div>
   <div class="search"><span>⌕</span><input id="searchLg" placeholder="Noonya ennamba oba erinnya…"></div>
   <div id="listLg" class="hymn-list"></div>
 </section>
-
+<section id="programme" class="screen">
+  <div class="section-head"><button class="back">←</button><div><h2>Service Programme</h2><p>Weekly church programme</p></div></div>
+  <div class="programme-intro"><span>🗓️</span><div><b>Mulago Eternal Life Gospel Church</b><p>Weekly service programme. Reminders are set for 10 minutes before each service.</p></div></div>
+  <div id="programmeList" class="programme-list"></div>
+  <div class="notice"><b>Offline reminder note</b><br>The programme itself is available offline. The Android app update will provide the 10-minute reminders even when the app is closed and the phone has no internet connection.</div>
+</section>
 <section id="favorites" class="screen">
   <div class="section-head"><button class="back">←</button><div><h2>Favourites</h2><p>Saved hymns</p></div></div>
   <div id="favList" class="hymn-list"></div>
 </section>
-
 <section id="sermons" class="screen">
-  <div class="section-head"><button class="back">←</button><div><h2>Sunday Services</h2><p>Church services online</p></div></div>
-  <div class="sermon-intro"><span>🎥</span><div><b>Watch Sunday Services online</b><p>Internet connection is required for videos.</p></div></div>
+  <div class="section-head"><button class="back">←</button><div><h2>Video Sermons</h2><p>Online ministry</p></div></div>
+  <div class="sermon-intro"><span>🎥</span><div><b>Watch church sermons online</b><p>Internet connection is required for videos.</p></div></div>
   <div id="sermonList" class="sermon-list"></div>
 </section>
-
 <section id="about" class="screen">
   <div class="section-head"><button class="back">←</button><div><h2>About</h2><p>Church information</p></div></div>
-  <div class="about-card"><img src="assets/church-logo.png" alt="Church logo"><h3>Mulago Eternal Life Gospel Church</h3><p>This Songbook provides offline access to English and Luganda hymns, with an online section for video sermons.</p><div class="about-details"><p><b>English:</b> 1194 hymns</p><p><b>Luganda:</b> 222 hymns</p><p><b>Hymns:</b> Available offline after the first successful load</p><p><b>Sermons:</b> Available online through the church YouTube channel</p></div><button class="share-btn" id="shareApp">Share Songbook</button><p class="muted">Version 2.1 · MELGC Songbook</p></div>
+  <div class="about-card"><img src="assets/church-logo.png" alt="Church logo"><h3>Mulago Eternal Life Gospel Church</h3><p>This Songbook provides offline access to English and Luganda hymns, with an online section for video sermons.</p><div class="about-details"><p><b>English:</b> 1245 hymns</p><p><b>Luganda:</b> 222 hymns</p><p><b>Hymns:</b> Available offline after the first successful load</p><p><b>Service programme:</b> Available offline</p><p><b>Sermons:</b> Available online through the church YouTube channel</p></div><button class="share-btn" id="shareApp">Share Songbook</button><p class="muted">Version 2.1 · MELGC Songbook</p></div>
 </section>
 </main>
 <nav class="bottom-nav">
   <button data-screen="home" class="nav-active">⌂<small>Home</small></button>
   <button data-screen="english">📖<small>English</small></button>
   <button data-screen="luganda">📗<small>Luganda</small></button>
-  <button data-screen="sermons">🎥<small>Services</small></button>
+  <button data-screen="sermons">🎥<small>Sermons</small></button>
   <button data-screen="favorites">⭐<small>Saved</small></button>
 </nav>
 <div id="reader" class="reader" aria-hidden="true">
