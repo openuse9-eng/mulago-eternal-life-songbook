@@ -8,23 +8,63 @@ function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&l
 function formatLyrics(lang,h){
   let raw=String(h.lyrics||'').replace(/\r/g,'').trim();
   if(!raw)return '';
-  raw=raw.replace(/\}\s*/g,' ').replace(/\s*\{/g,'').replace(/[ \t]+/g,' ');
-  const chunks=raw.split(/\n[ \t]*\n+/).map(x=>x.trim()).filter(Boolean);
+
+  raw=raw
+    .replace(/\}\s*/g,' ')
+    .replace(/\s*\{/g,'')
+    .replace(/[ \t]+/g,' ');
+
+  // Make section headings consistent even when they are
+  // attached directly to the previous or following lyric.
+  raw=raw.replace(
+    /(^|\n|\s)(CHORUS|BRIDGE|REFRAIN|VERSE|VAMP)\s*:?[.!]*(?=\s|\n|$)/gi,
+    '$1\n\n$2\n\n'
+  );
+
+  const chunks=raw
+    .split(/\n[ \t]*\n+/)
+    .map(x=>x.trim())
+    .filter(Boolean);
+
   const out=[];
-  for(let i=0;i<chunks.length;i++){
-    const lines=chunks[i].split(/\n+/).map(x=>x.trim()).filter(Boolean);
-    if(lines.length===1 && /^(CHORUS|BRIDGE|REFRAIN|VERSE|VAMP|TAG|INTRO)\s*:?[.!]*$/i.test(lines[0])){
-      const heading=lines[0].replace(/[:.!]+$/,'').toUpperCase();
-      const next=chunks[i+1];
-      if(next){
-        const nextLines=next.split(/\n+/).map(x=>x.trim()).filter(Boolean);
-        out.push(`<div class="lyric-section ${heading.toLowerCase()}"><div class="lyric-heading">${esc(heading)}</div><div class="stanza">${nextLines.map(esc).join('<br>')}</div></div>`);
-        i++;continue;
+
+  for(const chunk of chunks){
+    const lines=chunk
+      .split(/\n+/)
+      .map(x=>x.trim())
+      .filter(Boolean);
+
+    if(!lines.length)continue;
+
+    const headingMatch=lines[0].match(
+      /^(CHORUS|BRIDGE|REFRAIN|VERSE|VAMP)\s*:?[.!]*$/i
+    );
+
+    if(headingMatch){
+      const heading=headingMatch[1].toUpperCase();
+      const lyrics=lines.slice(1);
+
+      if(lyrics.length){
+        out.push(`
+          <div class="lyric-section ${heading.toLowerCase()}">
+            <div class="lyric-heading">
+              <strong>${esc(heading)}</strong>
+            </div>
+            <div class="stanza">
+              ${lyrics.map(esc).join('<br>')}
+            </div>
+          </div>
+        `);
       }
-      out.push(`<div class="lyric-heading">${esc(heading)}</div>`);continue;
+
+      continue;
     }
-    out.push(`<div class="stanza">${lines.map(esc).join('<br>')}</div>`);
+
+    out.push(
+      `<div class="stanza">${lines.map(esc).join('<br>')}</div>`
+    );
   }
+
   return out.join('');
 }
 let deferredInstallPrompt=null;
