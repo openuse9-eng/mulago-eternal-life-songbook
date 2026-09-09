@@ -1,680 +1,790 @@
-const state={lang:'en',hymns:{en:[],lg:[]},currentIndex:0,currentLang:'en',font:Number(localStorage.getItem('melgc-font')||19)};
-const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
+/* =========================
+   MULAGO ETERNAL LIFE SONGBOOK
+   Final app.js
+   ========================= */
 
-function cleanText(s){
-  return String(s||'')
-    .replace(/\r/g,'')
-    .replace(/[\u00a0\t]+/g,' ')
-    .replace(/\}\s*/g,' ')
-    .replace(/\s*\{/g,'')
-    .replace(/\s{2,}/g,' ')
+const state = {
+  en: [],
+  lg: [],
+  favorites: JSON.parse(localStorage.getItem("favorites") || "[]"),
+  currentLang: "en",
+  currentIndex: 0,
+  fontSize: localStorage.getItem("fontSize") || "normal"
+};
+
+/* ---------- Utilities ---------- */
+
+function $(id) {
+  return document.getElementById(id);
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function saveFavorites() {
+  localStorage.setItem("favorites", JSON.stringify(state.favorites));
+}
+
+function getHymnId(lang, hymn) {
+  return `${lang}-${hymn.number ?? hymn.id ?? hymn.title}`;
+}
+
+function isFavorite(lang, hymn) {
+  return state.favorites.includes(getHymnId(lang, hymn));
+}
+
+function toggleFavorite(lang, hymn) {
+  const id = getHymnId(lang, hymn);
+
+  if (state.favorites.includes(id)) {
+    state.favorites = state.favorites.filter(item => item !== id);
+  } else {
+    state.favorites.push(id);
+  }
+
+  saveFavorites();
+  renderList(lang, $("searchInput")?.value || "");
+  renderFavorites();
+}
+
+/* ---------- Lyrics formatting ---------- */
+
+function cleanLine(line) {
+  return String(line ?? "")
+    .replace(/[{}]/g, "")
+    .replace(/\r/g, "")
     .trim();
 }
 
-function esc(s){
-  return String(s??'').replace(/[&<>"']/g,c=>({
-    '&':'&amp;',
-    '<':'&lt;',
-    '>':'&gt;',
-    '"':'&quot;',
-    "'":'&#39;'
-  }[c]));
+function isSectionHeading(line) {
+  return /^(CHORUS|BRIDGE|REFRAIN|VERSE|VAMP|TAG|INTRO|CODA|PRE[- ]?CHORUS)\s*:?[.!]*$/i.test(
+    cleanLine(line)
+  );
 }
 
-/* =========================
-   HYMN LYRIC FORMATTER
-   ========================= */
-function formatLyrics(lang,h){
-  let raw=String(h.lyrics||'').replace(/\r/g,'').trim();
+function sectionName(line) {
+  const text = cleanLine(line);
 
-  if(!raw)return '';
+  if (/^PRE[- ]?CHORUS/i.test(text)) return "PRE-CHORUS";
 
-  /*
-    Remove the old source-book braces without
-    destroying the actual hymn lines.
-  */
-  raw=raw
-    .replace(/\}\s*/g,' ')
-    .replace(/\s*\{/g,'')
-    .replace(/[ \t]+/g,' ');
+  return text
+    .replace(/:?[.!]*$/, "")
+    .trim()
+    .toUpperCase();
+}
 
-  let lines=raw.split('\n').map(x=>x.trim());
+function sectionClass(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
 
-  while(lines.length && !lines[0])lines.shift();
-  while(lines.length && !lines[lines.length-1])lines.pop();
+function formatLyrics(hymn) {
+  let lyrics = hymn?.lyrics ?? hymn?.text ?? hymn?.content ?? "";
 
-  /*
-    Remove Key information if it accidentally appears
-    inside the lyrics.
-  */
-  const keyLine=/^(?:key|song\s*key|key\s*signature)\s*[:\-]?\s*[A-G](?:#|b)?(?:m|maj|min|major|minor|sus|dim|aug)?\s*$/i;
-
-  lines=lines.filter(line=>!keyLine.test(line));
-
-  /*
-    Recognise hymn section headings.
-  */
-  const heading=/^(CHORUS|BRIDGE|REFRAIN|VERSE|VAMP|TAG|INTRO|CODA|PRE[- ]?CHORUS)\s*:?[.!]*$/i;
-
-  const out=[];
-  let current=[];
-
-  function flush(){
-    if(!current.length)return;
-
-    const clean=current.map(x=>x.trim()).filter(Boolean);
-
-    if(clean.length){
-      out.push(
-        `<div class="stanza">${clean.map(esc).join('<br>')}</div>`
-      );
-    }
-
-    current=[];
+  if (Array.isArray(lyrics)) {
+    lyrics = lyrics.join("\n");
   }
 
-  for(const line of lines){
+  lyrics = String(lyrics)
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n");
 
-    if(!line){
-      flush();
-      continue;
+  const lines = lyrics
+    .split("\n")
+    .map(cleanLine);
+
+  const sections = [];
+  let current = {
+    name: "",
+    type: "stanza",
+    lines: []
+  };
+
+  function pushCurrent() {
+    if (current.lines.length) {
+      sections.push({
+        name: current.name,
+        type: current.type,
+        lines: [...current.lines]
+      });
     }
+  }
 
-    const match=line.match(heading);
-
-    if(match){
-      flush();
-
-      let name=match[1].toUpperCase();
-
-      if(/^PRE[- ]?CHORUS$/i.test(match[1])){
-        name='PRE-CHORUS';
+  lines.forEach(line => {
+    if (!line) {
+      if (current.lines.length) {
+        current.lines.push("");
       }
+      return;
+    }
 
-      out.push(
-        `<div class="lyric-heading">${esc(name)}</div>`
-      );
+    if (isSectionHeading(line)) {
+      pushCurrent();
 
-    }else{
-      current.push(line);
+      const name = sectionName(line);
+
+      current = {
+        name,
+        type: sectionClass(name),
+        lines: []
+      };
+
+      return;
+    }
+
+    current.lines.push(line);
+  });
+
+  pushCurrent();
+
+  if (!sections.length && lines.some(Boolean)) {
+    sections.push({
+      name: "",
+      type: "stanza",
+      lines: lines.filter(Boolean)
+    });
+  }
+
+  return sections
+    .map(section => {
+      const text = section.lines
+        .join("\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+
+      if (!text) return "";
+
+      const heading = section.name
+        ? `<div class="lyric-heading">${escapeHtml(section.name)}</div>`
+        : "";
+
+      return `
+        <div class="lyric-section ${escapeHtml(section.type)}">
+          ${heading}
+          <div class="stanza">${escapeHtml(text)}</div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function getFirstLine(hymn) {
+  let lyrics = hymn?.lyrics ?? hymn?.text ?? hymn?.content ?? "";
+
+  if (Array.isArray(lyrics)) {
+    lyrics = lyrics.join("\n");
+  }
+
+  const lines = String(lyrics)
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map(cleanLine)
+    .filter(Boolean);
+
+  for (const line of lines) {
+    if (!isSectionHeading(line)) {
+      if (!/^(KEY|KEY:|TIME|TEMPO|CAPO)\b/i.test(line)) {
+        return line;
+      }
     }
   }
 
-  flush();
-
-  return out.join('');
+  return "";
 }
 
-/* =========================
-   LOAD HYMNS
-   ========================= */
-let deferredInstallPrompt=null;
+/* ---------- Hymn list ---------- */
 
-async function load(){
-  try{
-    state.hymns.en=await fetch('hymns-en.json').then(r=>{
-      if(!r.ok)throw new Error('Could not load hymns-en.json');
-      return r.json();
+function renderList(lang, query = "") {
+  const container =
+    lang === "en"
+      ? $("englishList") || $("hymnListEn") || $("englishHymns")
+      : $("lugandaList") || $("hymnListLg") || $("lugandaHymns");
+
+  if (!container) return;
+
+  const hymns = state[lang] || [];
+  const q = String(query).trim().toLowerCase();
+
+  const filtered = hymns.filter(hymn => {
+    if (!q) return true;
+
+    const number = String(hymn.number ?? hymn.id ?? "");
+    const title = String(hymn.title ?? hymn.name ?? "");
+    const lyrics = String(
+      hymn.lyrics ?? hymn.text ?? hymn.content ?? ""
+    );
+
+    return (
+      number.toLowerCase().includes(q) ||
+      title.toLowerCase().includes(q) ||
+      lyrics.toLowerCase().includes(q)
+    );
+  });
+
+  if (!filtered.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        No hymns found.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = filtered
+    .map((hymn, filteredIndex) => {
+      const number = hymn.number ?? hymn.id ?? filteredIndex + 1;
+      const title = hymn.title ?? hymn.name ?? "Untitled hymn";
+      const preview = getFirstLine(hymn);
+      const favorite = isFavorite(lang, hymn);
+
+      return `
+        <div class="hymn-row english-row"
+             data-lang="${escapeHtml(lang)}"
+             data-index="${escapeHtml(filteredIndex)}">
+
+          <div class="num">${escapeHtml(number)}</div>
+
+          <div class="row-main">
+            <div class="row-title">${escapeHtml(title)}</div>
+            <div class="row-preview">${escapeHtml(preview)}</div>
+          </div>
+
+          <button
+            class="row-fav"
+            type="button"
+            aria-label="${favorite ? "Remove from favorites" : "Add to favorites"}"
+            data-fav-lang="${escapeHtml(lang)}"
+            data-fav-id="${escapeHtml(getHymnId(lang, hymn))}">
+            ${favorite ? "★" : "☆"}
+          </button>
+        </div>
+      `;
+    })
+    .join("");
+
+  container.querySelectorAll(".hymn-row").forEach(row => {
+    row.addEventListener("click", event => {
+      if (event.target.closest(".row-fav")) return;
+
+      const index = Number(row.dataset.index);
+      const hymn = filtered[index];
+
+      if (hymn) {
+        openHymn(lang, hymn);
+      }
     });
+  });
 
-    state.hymns.lg=await fetch('hymns-lg.json').then(r=>{
-      if(!r.ok)throw new Error('Could not load hymns-lg.json');
-      return r.json();
+  container.querySelectorAll(".row-fav").forEach(button => {
+    button.addEventListener("click", event => {
+      event.stopPropagation();
+
+      const hymn = (state[lang] || []).find(
+        item => getHymnId(lang, item) === button.dataset.favId
+      );
+
+      if (hymn) {
+        toggleFavorite(lang, hymn);
+      }
     });
+  });
+}
 
-    renderList('en','');
-    renderList('lg','');
+/* ---------- Favorites ---------- */
+
+function renderFavorites() {
+  const container =
+    $("favoritesList") ||
+    $("favouritesList") ||
+    $("favoriteList");
+
+  if (!container) return;
+
+  const items = [];
+
+  ["en", "lg"].forEach(lang => {
+    (state[lang] || []).forEach(hymn => {
+      if (isFavorite(lang, hymn)) {
+        items.push({ lang, hymn });
+      }
+    });
+  });
+
+  if (!items.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        No favorite hymns yet.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = items
+    .map(({ lang, hymn }) => {
+      const number = hymn.number ?? hymn.id ?? "";
+      const title = hymn.title ?? hymn.name ?? "Untitled hymn";
+      const preview = getFirstLine(hymn);
+
+      return `
+        <div class="hymn-row english-row"
+             data-fav-lang="${escapeHtml(lang)}"
+             data-fav-id="${escapeHtml(getHymnId(lang, hymn))}">
+
+          <div class="num">${escapeHtml(number)}</div>
+
+          <div class="row-main">
+            <div class="row-title">${escapeHtml(title)}</div>
+            <div class="row-preview">${escapeHtml(preview)}</div>
+          </div>
+
+          <button
+            class="row-fav"
+            type="button"
+            aria-label="Remove from favorites">
+            ★
+          </button>
+        </div>
+      `;
+    })
+    .join("");
+
+  container.querySelectorAll(".hymn-row").forEach(row => {
+    row.addEventListener("click", event => {
+      const lang = row.dataset.favLang;
+      const hymn = (state[lang] || []).find(
+        item => getHymnId(lang, item) === row.dataset.favId
+      );
+
+      if (!event.target.closest(".row-fav") && hymn) {
+        openHymn(lang, hymn);
+      }
+    });
+  });
+
+  container.querySelectorAll(".row-fav").forEach(button => {
+    button.addEventListener("click", event => {
+      event.stopPropagation();
+
+      const row = button.closest(".hymn-row");
+      const lang = row.dataset.favLang;
+
+      const hymn = (state[lang] || []).find(
+        item => getHymnId(lang, item) === row.dataset.favId
+      );
+
+      if (hymn) {
+        toggleFavorite(lang, hymn);
+      }
+    });
+  });
+      }
+/* ---------- Reader ---------- */
+
+function renderCurrentHymn() {
+  const reader = $("reader");
+  if (!reader) return;
+
+  const hymns = state[state.currentLang] || [];
+  const hymn = hymns[state.currentIndex];
+
+  if (!hymn) return;
+
+  const title = hymn.title ?? hymn.name ?? "Untitled hymn";
+  const number = hymn.number ?? hymn.id ?? "";
+
+  const article = reader.querySelector("article") || reader;
+
+  article.innerHTML = `
+    <div class="reader-header">
+      <div class="reader-number">
+        ${escapeHtml(number)}
+      </div>
+
+      <h2>${escapeHtml(title)}</h2>
+
+      <button
+        id="readerFav"
+        class="reader-fav"
+        type="button"
+        aria-label="Favorite hymn">
+        ${isFavorite(state.currentLang, hymn) ? "★" : "☆"}
+      </button>
+    </div>
+
+    <div class="lyrics">
+      ${formatLyrics(hymn)}
+    </div>
+  `;
+
+  const favButton = $("readerFav");
+
+  if (favButton) {
+    favButton.addEventListener("click", () => {
+      toggleFavorite(state.currentLang, hymn);
+      renderCurrentHymn();
+    });
+  }
+
+  const readerTitle = $("readerTitle");
+  if (readerTitle) {
+    readerTitle.textContent = title;
+  }
+
+  const readerNumber = $("readerNumber");
+  if (readerNumber) {
+    readerNumber.textContent = number;
+  }
+
+  applyFont();
+}
+
+function openHymn(lang, hymn) {
+  const hymns = state[lang] || [];
+  const index = hymns.indexOf(hymn);
+
+  state.currentLang = lang;
+  state.currentIndex = index >= 0 ? index : 0;
+
+  renderCurrentHymn();
+
+  const reader = $("reader");
+
+  if (reader) {
+    reader.classList.add("open");
+    reader.removeAttribute("hidden");
+  }
+
+  document.body.classList.add("reader-open");
+
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth"
+  });
+}
+
+function closeReader() {
+  const reader = $("reader");
+
+  if (reader) {
+    reader.classList.remove("open");
+
+    if (reader.hasAttribute("hidden") === false) {
+      reader.setAttribute("hidden", "");
+    }
+  }
+
+  document.body.classList.remove("reader-open");
+}
+
+function previousHymn() {
+  const hymns = state[state.currentLang] || [];
+
+  if (!hymns.length) return;
+
+  state.currentIndex--;
+
+  if (state.currentIndex < 0) {
+    state.currentIndex = hymns.length - 1;
+  }
+
+  renderCurrentHymn();
+}
+
+function nextHymn() {
+  const hymns = state[state.currentLang] || [];
+
+  if (!hymns.length) return;
+
+  state.currentIndex++;
+
+  if (state.currentIndex >= hymns.length) {
+    state.currentIndex = 0;
+  }
+
+  renderCurrentHymn();
+}
+
+/* ---------- Font size ---------- */
+
+function applyFont() {
+  const reader = $("reader");
+
+  if (!reader) return;
+
+  reader.classList.remove(
+    "font-small",
+    "font-normal",
+    "font-large"
+  );
+
+  if (state.fontSize === "small") {
+    reader.classList.add("font-small");
+  } else if (state.fontSize === "large") {
+    reader.classList.add("font-large");
+  } else {
+    reader.classList.add("font-normal");
+  }
+}
+
+function setFontSize(size) {
+  if (!["small", "normal", "large"].includes(size)) {
+    size = "normal";
+  }
+
+  state.fontSize = size;
+  localStorage.setItem("fontSize", size);
+
+  applyFont();
+}
+
+/* ---------- Sermons ---------- */
+
+function renderSermons() {
+  const container =
+    $("sermonsList") ||
+    $("sermonList") ||
+    $("sermons");
+
+  if (!container) return;
+
+  const sermons =
+    Array.isArray(window.sermons)
+      ? window.sermons
+      : [];
+
+  if (!sermons.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        No sermons available.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = sermons
+    .map((sermon, index) => {
+      const title =
+        typeof sermon === "string"
+          ? sermon
+          : sermon.title ?? `Sermon ${index + 1}`;
+
+      return `
+        <div class="sermon-row">
+          ${escapeHtml(title)}
+        </div>
+      `;
+    })
+    .join("");
+}
+
+/* ---------- Search ---------- */
+
+function setupSearch() {
+  const input = $("searchInput");
+
+  if (!input) return;
+
+  input.addEventListener("input", () => {
+    const query = input.value;
+
+    renderList("en", query);
+    renderList("lg", query);
+  });
+}
+
+/* ---------- Language / tabs ---------- */
+
+function showLanguage(lang) {
+  const english =
+    $("englishSection") ||
+    $("englishHymnsSection") ||
+    $("english");
+
+  const luganda =
+    $("lugandaSection") ||
+    $("lugandaHymnsSection") ||
+    $("luganda");
+
+  if (english) {
+    english.classList.toggle("active", lang === "en");
+    english.hidden = lang !== "en";
+  }
+
+  if (luganda) {
+    luganda.classList.toggle("active", lang === "lg");
+    luganda.hidden = lang !== "lg";
+  }
+
+  document
+    .querySelectorAll("[data-lang-tab]")
+    .forEach(button => {
+      button.classList.toggle(
+        "active",
+        button.dataset.langTab === lang
+      );
+    });
+}
+
+function setupLanguageTabs() {
+  document
+    .querySelectorAll("[data-lang-tab]")
+    .forEach(button => {
+      button.addEventListener("click", () => {
+        showLanguage(button.dataset.langTab);
+      });
+    });
+}
+
+/* ---------- Buttons ---------- */
+
+function setupButtons() {
+  const closeButton =
+    $("closeReader") ||
+    $("readerClose") ||
+    $("close");
+
+  if (closeButton) {
+    closeButton.addEventListener("click", closeReader);
+  }
+
+  const previous =
+    $("prevHymn") ||
+    $("previousHymn") ||
+    $("prev");
+
+  if (previous) {
+    previous.addEventListener("click", previousHymn);
+  }
+
+  const next =
+    $("nextHymn") ||
+    $("next");
+
+  if (next) {
+    next.addEventListener("click", nextHymn);
+  }
+
+  const small =
+    $("fontDown") ||
+    $("fontSmall");
+
+  if (small) {
+    small.addEventListener("click", () => {
+      setFontSize("small");
+    });
+  }
+
+  const normal =
+    $("fontNormal") ||
+    $("fontReset");
+
+  if (normal) {
+    normal.addEventListener("click", () => {
+      setFontSize("normal");
+    });
+  }
+
+  const large =
+    $("fontUp") ||
+    $("fontLarge");
+
+  if (large) {
+    large.addEventListener("click", () => {
+      setFontSize("large");
+    });
+  }
+
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+      closeReader();
+    }
+
+    if (event.key === "ArrowLeft") {
+      previousHymn();
+    }
+
+    if (event.key === "ArrowRight") {
+      nextHymn();
+    }
+  });
+}
+
+/* ---------- Data loading ---------- */
+
+async function loadJson(url) {
+  const response = await fetch(url, {
+    cache: "no-cache"
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Unable to load ${url}: ${response.status}`
+    );
+  }
+
+  return response.json();
+}
+
+function normalizeHymns(data) {
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  if (Array.isArray(data?.hymns)) {
+    return data.hymns;
+  }
+
+  if (Array.isArray(data?.songs)) {
+    return data.songs;
+  }
+
+  return [];
+}
+
+async function load() {
+  try {
+    const [englishData, lugandaData] =
+      await Promise.all([
+        loadJson("hymns-en.json"),
+        loadJson("hymns-lg.json")
+      ]);
+
+    state.en = normalizeHymns(englishData);
+    state.lg = normalizeHymns(lugandaData);
+
+    renderList("en", "");
+    renderList("lg", "");
     renderFavorites();
     renderSermons();
 
-  }catch(e){
-    console.error('Songbook load error:',e);
+    applyFont();
+    showLanguage("en");
+
+  } catch (error) {
+    console.error("Songbook loading error:", error);
+
+    const message = document.createElement("div");
+
+    message.className = "load-error";
+
+    message.textContent =
+      "Unable to load the hymn books. Please refresh the page.";
+
+    document.body.prepend(message);
   }
 }
 
-/* =========================
-   NAVIGATION
-   ========================= */
-function showScreen(id){
-  $$('.screen').forEach(x=>
-    x.classList.toggle('active',x.id===id)
-  );
+/* ---------- Start application ---------- */
 
-  $$('.bottom-nav button').forEach(b=>
-    b.classList.toggle('nav-active',b.dataset.screen===id)
-  );
-
-  window.scrollTo(0,0);
-}
-
-$$('[data-screen]').forEach(b=>
-  b.addEventListener('click',()=>showScreen(b.dataset.screen))
-);
-
-$$('.back').forEach(b=>
-  b.addEventListener('click',()=>showScreen('home'))
-);
-
-/* =========================
-   MENU / THEME
-   ========================= */
-const menuBtn=$('#menuBtn');
-
-if(menuBtn){
-  menuBtn.addEventListener('click',()=>showScreen('about'));
-}
-
-const themeBtn=$('#themeBtn');
-
-if(themeBtn){
-  themeBtn.addEventListener('click',()=>{
-    document.body.classList.toggle('light');
-  });
-}
-
-/* =========================
-   INSTALL APP
-   ========================= */
-if(localStorage.getItem('melgc-install-dismissed')!=='1'){
-  window.addEventListener('beforeinstallprompt',e=>{
-    e.preventDefault();
-
-    deferredInstallPrompt=e;
-
-    const b=$('#installBanner');
-
-    if(b)b.hidden=false;
-  });
-}
-
-const ib=$('#installBtn');
-
-if(ib){
-  ib.addEventListener('click',async()=>{
-    if(!deferredInstallPrompt)return;
-
-    deferredInstallPrompt.prompt();
-
-    await deferredInstallPrompt.userChoice;
-
-    deferredInstallPrompt=null;
-
-    const b=$('#installBanner');
-
-    if(b)b.hidden=true;
-  });
-}
-
-const db=$('#dismissInstall');
-
-if(db){
-  db.addEventListener('click',()=>{
-    localStorage.setItem('melgc-install-dismissed','1');
-
-    const b=$('#installBanner');
-
-    if(b)b.hidden=true;
-  });
-}
-
-window.addEventListener('appinstalled',()=>{
-  const b=$('#installBanner');
-
-  if(b)b.hidden=true;
+document.addEventListener("DOMContentLoaded", () => {
+  setupSearch();
+  setupLanguageTabs();
+  setupButtons();
+  load();
 });
-
-/* =========================
-   SHARE APP
-   ========================= */
-const sb=$('#shareApp');
-
-if(sb){
-  sb.addEventListener('click',async()=>{
-    const data={
-      title:'MELGC Songbook',
-      text:'Mulago Eternal Life Gospel Church Songbook',
-      url:location.href
-    };
-
-    try{
-      if(navigator.share){
-        await navigator.share(data);
-      }else if(navigator.clipboard){
-        await navigator.clipboard.writeText(location.href);
-      }
-    }catch(e){}
-  });
-}
-
-/* =========================
-   HYMN LIST
-   ========================= */
-function renderList(lang,q){
-  const box=lang==='en'?$('#listEn'):$('#listLg');
-
-  if(!box)return;
-
-  const term=q.trim().toLowerCase();
-
-  const arr=state.hymns[lang].filter(h=>
-    !term ||
-    String(h.number).includes(term) ||
-    String(h.title||'').toLowerCase().includes(term)
-  );
-
-  box.innerHTML=arr.map(h=>{
-
-    const first=String(h.lyrics||'')
-      .split(/\n+/)
-      .map(x=>x.trim())
-      .find(x=>
-        x &&
-        !/^(?:key|song\s*key|key\s*signature)\s*[:\-]?/i.test(x)
-      )||'';
-
-    return `
-      <button
-        class="hymn-row ${lang==='en'?'english-row':''}"
-        data-lang="${lang}"
-        data-num="${h.number}"
-      >
-        <span class="num">${h.number}</span>
-
-        <span class="row-main">
-          <span class="row-title">${esc(h.title)}</span>
-
-          ${
-            lang==='en'
-            ?`<span class="row-preview">${esc(first)}</span>`
-            :''
-          }
-        </span>
-
-        ${
-          lang==='en'
-          ?'<span class="row-fav">☆</span>'
-          :`<span class="row-key">${esc(h.key||'')}</span>`
-        }
-      </button>
-    `;
-
-  }).join('')||'<div class="empty">No hymns found.</div>';
-
-  box.querySelectorAll('.hymn-row').forEach(x=>
-    x.addEventListener('click',()=>
-      openHymn(lang,Number(x.dataset.num))
-    )
-  );
-}
-
-/* =========================
-   OPEN HYMN
-   ========================= */
-function openHymn(lang,num){
-
-  const arr=state.hymns[lang];
-
-  const idx=arr.findIndex(h=>h.number===num);
-
-  if(idx<0)return;
-
-  state.currentLang=lang;
-  state.currentIndex=idx;
-
-  const h=arr[idx];
-
-  const title=$('#readerTitle');
-  const key=$('#readerKey');
-  const body=$('#readerBody');
-  const reader=$('#reader');
-
-  if(title){
-    title.textContent=h.title;
-  }
-
-  if(key){
-    key.textContent=h.key?`Key: ${h.key}`:'';
-  }
-
-  if(body){
-    body.innerHTML=
-      formatLyrics(lang,h)||
-      '<div class="stanza">Lyrics not available in the source book.</div>';
-  }
-
-  if(reader){
-    reader.classList.add('open');
-    reader.setAttribute('aria-hidden','false');
-    reader.scrollTo(0,0);
-  }
-
-  updateFavButton();
-}
-
-/* =========================
-   CLOSE READER
-   ========================= */
-const closeReader=$('#closeReader');
-
-if(closeReader){
-  closeReader.addEventListener('click',()=>{
-
-    const reader=$('#reader');
-
-    if(reader){
-      reader.classList.remove('open');
-      reader.setAttribute('aria-hidden','true');
-    }
-
-  });
-}
-
-/* =========================
-   FAVOURITES
-   ========================= */
-function favKey(){
-
-  const h=state.hymns[
-    state.currentLang
-  ][state.currentIndex];
-
-  return `${state.currentLang}-${h.number}`;
-}
-
-function getFavs(){
-
-  try{
-    return JSON.parse(
-      localStorage.getItem('melgc-favs')||'[]'
-    );
-  }catch{
-    return[];
-  }
-}
-
-function updateFavButton(){
-
-  const btn=$('#favReader');
-
-  if(btn){
-    btn.textContent=
-      getFavs().includes(favKey())?'★':'☆';
-  }
-}
-
-const favReader=$('#favReader');
-
-if(favReader){
-
-  favReader.addEventListener('click',()=>{
-
-    let f=getFavs();
-    const k=favKey();
-
-    f=f.includes(k)
-      ?f.filter(x=>x!==k)
-      :[...f,k];
-
-    localStorage.setItem(
-      'melgc-favs',
-      JSON.stringify(f)
-    );
-
-    updateFavButton();
-    renderFavorites();
-
-  });
-}
-
-function renderFavorites(){
-
-  const box=$('#favList');
-
-  if(!box)return;
-
-  const f=getFavs();
-  const items=[];
-
-  f.forEach(k=>{
-
-    const parts=k.split('-');
-
-    const lang=parts.shift();
-
-    const n=Number(parts.join('-'));
-
-    const h=state.hymns[lang]?.find(
-      x=>x.number===n
-    );
-
-    if(h)items.push({lang,h});
-  });
-
-  box.innerHTML=items.length
-
-    ?items.map(x=>`
-
-      <button
-        class="hymn-row"
-        data-lang="${x.lang}"
-        data-num="${x.h.number}"
-      >
-        <span class="num">${x.h.number}</span>
-
-        <span class="row-title">
-          ${esc(x.h.title)}
-        </span>
-
-        <span class="row-key">
-          ${x.lang==='en'?'EN':'LG'}
-        </span>
-      </button>
-
-    `).join('')
-
-    :'<div class="empty">No favourites yet. Tap ☆ while reading a hymn.</div>';
-
-  box.querySelectorAll('.hymn-row').forEach(x=>
-    x.addEventListener('click',()=>
-      openHymn(
-        x.dataset.lang,
-        Number(x.dataset.num)
-      )
-    )
-  );
-}
-
-/* =========================
-   PREVIOUS / NEXT HYMN
-   ========================= */
-const prevHymn=$('#prevHymn');
-
-if(prevHymn){
-  prevHymn.addEventListener('click',()=>move(-1));
-}
-
-const nextHymn=$('#nextHymn');
-
-if(nextHymn){
-  nextHymn.addEventListener('click',()=>move(1));
-}
-
-function move(d){
-
-  const arr=state.hymns[state.currentLang];
-
-  if(!arr.length)return;
-
-  state.currentIndex=
-    (state.currentIndex+d+arr.length)%arr.length;
-
-  const h=arr[state.currentIndex];
-
-  const title=$('#readerTitle');
-  const key=$('#readerKey');
-  const body=$('#readerBody');
-  const reader=$('#reader');
-
-  if(title){
-    title.textContent=h.title;
-  }
-
-  if(key){
-    key.textContent=h.key?`Key: ${h.key}`:'';
-  }
-
-  if(body){
-    body.innerHTML=
-      formatLyrics(state.currentLang,h)||
-      '<div class="stanza">Lyrics not available in the source book.</div>';
-  }
-
-  updateFavButton();
-
-  if(reader){
-    reader.scrollTo(0,0);
-  }
-}
-
-/* =========================
-   SERMONS
-   ========================= */
-function renderSermons(){
-
-  const box=$('#sermonList');
-
-  if(!box)return;
-
-  const videos=[
-    's1wsCuB_g_U',
-    'YsV4oHcb8ds',
-    'HXTHGLnlOD0',
-    '4UjLbqemQb4',
-    'KD9EkPTT0LI',
-    'qTYQzZQoNrM',
-    'HGpGR3A3izo',
-    'aQV0yfnPR8o',
-    'jSpPtPN-liQ',
-    'XsRw9Xpov5g'
-  ];
-
-  box.innerHTML=videos
-    .slice()
-    .reverse()
-    .map((id,i)=>`
-
-      <div class="sermon">
-
-        <div class="sermon-label">
-          Sunday Service ${i+1}
-        </div>
-
-        <div class="sermon-player">
-
-          <iframe
-            src="https://www.youtube.com/embed/${id}"
-            title="MELGC Sunday Service ${i+1}"
-            loading="lazy"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowfullscreen>
-          </iframe>
-
-        </div>
-
-      </div>
-
-    `).join('');
-}
-
-/* =========================
-   SEARCH
-   ========================= */
-const searchEn=$('#searchEn');
-
-if(searchEn){
-  searchEn.addEventListener(
-    'input',
-    e=>renderList('en',e.target.value)
-  );
-}
-
-const searchLg=$('#searchLg');
-
-if(searchLg){
-  searchLg.addEventListener(
-    'input',
-    e=>renderList('lg',e.target.value)
-  );
-}
-
-/* =========================
-   FONT SIZE
-   ========================= */
-function applyFont(){
-
-  const body=$('#readerBody');
-
-  if(body){
-    body.style.fontSize=state.font+'px';
-  }
-
-  localStorage.setItem(
-    'melgc-font',
-    String(state.font)
-  );
-}
-
-const smaller=$('#smaller');
-
-if(smaller){
-  smaller.addEventListener('click',()=>{
-
-    state.font=Math.max(
-      14,
-      state.font-2
-    );
-
-    applyFont();
-  });
-}
-
-const larger=$('#larger');
-
-if(larger){
-  larger.addEventListener('click',()=>{
-
-    state.font=Math.min(
-      34,
-      state.font+2
-    );
-
-    applyFont();
-  });
-}
-
-const resetFont=$('#resetFont');
-
-if(resetFont){
-  resetFont.addEventListener('click',()=>{
-
-    state.font=19;
-
-    applyFont();
-  });
-}
-
-/* =========================
-   START APP
-   ========================= */
-load().then(()=>applyFont());
-
-/* =========================
-   SERVICE WORKER
-   ========================= */
-if('serviceWorker' in navigator){
-
-  window.addEventListener(
-    'load',
-    ()=>navigator.serviceWorker.register('sw.js')
-  );
-        }
