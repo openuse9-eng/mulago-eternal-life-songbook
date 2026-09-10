@@ -61,8 +61,37 @@ const programme=[
  {day:'Friday',events:[['12:00 PM','1:00 PM','Lunch Hour'],['5:00 PM','7:00 PM','Bible Study'],['8:00 PM','11:00 PM','Night Prayer']]}
 ];
 function renderProgramme(){const box=$('#programmeList');if(!box)return;box.innerHTML=programme.map(d=>`<div class="programme-day"><h3>${d.day}</h3>${d.events.map(e=>`<div class="programme-event"><div class="programme-time">${e[0]} – ${e[1]}</div><div class="programme-name">${esc(e[2])}</div><button class="reminder-btn" type="button" data-day="${d.day}" data-time="${e[0]}" data-event="${esc(e[2])}">🔔 Remind me</button></div>`).join('')}</div>`).join('');box.querySelectorAll('.reminder-btn').forEach(b=>b.addEventListener('click',()=>requestWebReminder(b)))}
-async function requestWebReminder(btn){if(!('Notification'in window)){alert('Notifications are not supported on this device/browser.');return}if(Notification.permission==='default')await Notification.requestPermission();if(Notification.permission==='granted'){localStorage.setItem('melgc-reminders-enabled','1');btn.textContent='✓ Reminder enabled';btn.classList.add('enabled');alert('Reminder preference saved. Offline reminders when the app is closed will be enabled in the Android app update.')}else alert('Notifications are blocked. Please allow notifications for MELGC Songbook in Android settings.')}
-$('#searchEn').addEventListener('input',e=>renderList('en',e.target.value));$('#searchLg').addEventListener('input',e=>renderList('lg',e.target.value));
+async function requestWebReminder(btn){
+  if(!('Notification' in window)){
+    alert('Notifications are not supported on this device/browser.');
+    return;
+  }
+
+  if(Notification.permission==='default'){
+    await Notification.requestPermission();
+  }
+
+  if(Notification.permission!=='granted'){
+    alert('Notifications are blocked. Please allow notifications for MELGC Songbook in Android settings.');
+    return;
+  }
+
+  const day=btn.dataset.day;
+  const time=btn.dataset.time;
+  const event=btn.dataset.event;
+
+  const key=`melgc-reminder-${day}-${time}`;
+  localStorage.setItem(key,'1');
+
+  btn.textContent='✓ Reminder enabled';
+  btn.classList.add('enabled');
+
+  const nativeUrl='melgc://remind?day='+encodeURIComponent(day)
+    +'&time='+encodeURIComponent(time)
+    +'&event='+encodeURIComponent(event);
+
+  window.location.href=nativeUrl;
+}$('#searchEn').addEventListener('input',e=>renderList('en',e.target.value));$('#searchLg').addEventListener('input',e=>renderList('lg',e.target.value));
 function applyFont(){$('#readerBody').style.fontSize=state.font+'px';localStorage.setItem('melgc-font',String(state.font))}
 $('#smaller').addEventListener('click',()=>{state.font=Math.max(14,state.font-2);applyFont()});$('#larger').addEventListener('click',()=>{state.font=Math.min(34,state.font+2);applyFont()});$('#resetFont').addEventListener('click',()=>{state.font=19;applyFont()});
 load().then(()=>applyFont());
