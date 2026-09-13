@@ -82,15 +82,15 @@ async function requestWebReminder(btn){
 
   const key=`melgc-reminder-${day}-${time}`;
   localStorage.setItem(key,'1');
+btn.textContent='✓ Reminder enabled';
+btn.classList.add('enabled');
 
-  btn.textContent='✓ Reminder enabled';
-  btn.classList.add('enabled');
-
+setTimeout(()=>{
   const nativeUrl='melgc://remind?day='+encodeURIComponent(day)
     +'&time='+encodeURIComponent(time)
     +'&event='+encodeURIComponent(event);
-
   window.location.href=nativeUrl;
+},500);
 }$('#searchEn').addEventListener('input',e=>renderList('en',e.target.value));$('#searchLg').addEventListener('input',e=>renderList('lg',e.target.value));
 function applyFont(){$('#readerBody').style.fontSize=state.font+'px';localStorage.setItem('melgc-font',String(state.font))}
 $('#smaller').addEventListener('click',()=>{state.font=Math.max(14,state.font-2);applyFont()});$('#larger').addEventListener('click',()=>{state.font=Math.min(34,state.font+2);applyFont()});$('#resetFont').addEventListener('click',()=>{state.font=19;applyFont()});
