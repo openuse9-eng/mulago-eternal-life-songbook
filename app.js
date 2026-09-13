@@ -572,7 +572,7 @@ async function requestWebReminder(btn){
 
   if(btn.classList.contains('enabled'))return;
 
-  if(!('Notification'in window)){
+  if(!('Notification' in window)){
     alert('Notifications are not supported on this device/browser.');
     return;
   }
@@ -591,32 +591,40 @@ async function requestWebReminder(btn){
   const event=btn.dataset.event;
   const key=reminderKey(day,time);
 
-  /* Save to localStorage immediately */
+  /* Save the reminder state */
   localStorage.setItem(key,'1');
 
-  /* Save to IndexedDB as a persistent backup */
   try{
     await saveReminderState(key);
   }catch(e){}
 
-  /* Change button immediately */
+  /* Immediately keep the button enabled */
   btn.textContent='✓ Reminder enabled';
   btn.classList.add('enabled');
 
-  /* Send request to the native Android reminder system */
+  /*
+   * Send the native reminder request without navigating
+   * the MELGC Songbook page away.
+   */
+  const nativeUrl=
+    'melgc://remind?day='+
+    encodeURIComponent(day)+
+    '&time='+
+    encodeURIComponent(time)+
+    '&event='+
+    encodeURIComponent(event);
+
+  const frame=document.createElement('iframe');
+
+  frame.style.display='none';
+  frame.src=nativeUrl;
+
+  document.body.appendChild(frame);
+
   setTimeout(()=>{
-    const nativeUrl=
-      'melgc://remind?day='+
-      encodeURIComponent(day)+
-      '&time='+
-      encodeURIComponent(time)+
-      '&event='+
-      encodeURIComponent(event);
-
-    window.location.href=nativeUrl;
-  },500);
+    frame.remove();
+  },2000);
 }
-
 
 /* =========================================================
    SEARCH
