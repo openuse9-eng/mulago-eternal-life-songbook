@@ -1,40 +1,99 @@
-const state={lang:'en',hymns:{en:[],lg:[]},currentIndex:0,currentLang:'en',font:Number(localStorage.getItem('melgc-font')||19)};
-const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
+const state={
+  lang:'en',
+  hymns:{en:[],lg:[]},
+  currentIndex:0,
+  currentLang:'en',
+  font:Number(localStorage.getItem('melgc-font')||19)
+};
 
-function cleanText(s){return String(s||'').replace(/\r/g,'').replace(/[\u00a0\t]+/g,' ').replace(/\}\s*/g,' ').replace(/\s*\{/g,'').replace(/\s{2,}/g,' ').trim()}
+const $=s=>document.querySelector(s);
+const $$=s=>document.querySelectorAll(s);
 
-function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function cleanText(s){
+  return String(s||'')
+    .replace(/\r/g,'')
+    .replace(/[\u00a0\t]+/g,' ')
+    .replace(/\}\s*/g,' ')
+    .replace(/\s*\{/g,'')
+    .replace(/\s{2,}/g,' ')
+    .trim();
+}
+
+function esc(s){
+  return String(s??'').replace(/[&<>"']/g,c=>({
+    '&':'&amp;',
+    '<':'&lt;',
+    '>':'&gt;',
+    '"':'&quot;',
+    "'":'&#39;'
+  }[c]));
+}
 
 function formatLyrics(lang,h){
   let raw=String(h.lyrics||'').replace(/\r/g,'').trim();
-  if(!raw)return '';
-  raw=raw.replace(/\}\s*/g,' ').replace(/\s*\{/g,'').replace(/[ \t]+/g,' ');
-  raw=raw.replace(/(^|\n)\s*(CHORUS|BRIDGE|REFRAIN|VERSE|VAMP|TAG|INTRO)\s*:?\s*(?=\n|$)/gim,'$1\n$2\n');
-  raw=raw.replace(/([.!?;,])\s+(CHORUS|BRIDGE|REFRAIN|VERSE|VAMP|TAG|INTRO)\s*:?\s*/gi,'$1\n\n$2\n\n');
 
-  const chunks=raw.split(/\n[ \t]*\n+/).map(x=>x.trim()).filter(Boolean);
+  if(!raw)return '';
+
+  raw=raw
+    .replace(/\}\s*/g,' ')
+    .replace(/\s*\{/g,'')
+    .replace(/[ \t]+/g,' ');
+
+  raw=raw.replace(
+    /(^|\n)\s*(CHORUS|BRIDGE|REFRAIN|VERSE|VAMP|TAG|INTRO)\s*:?\s*(?=\n|$)/gim,
+    '$1\n$2\n'
+  );
+
+  raw=raw.replace(
+    /([.!?;,])\s+(CHORUS|BRIDGE|REFRAIN|VERSE|VAMP|TAG|INTRO)\s*:?\s*/gi,
+    '$1\n\n$2\n\n'
+  );
+
+  const chunks=raw
+    .split(/\n[ \t]*\n+/)
+    .map(x=>x.trim())
+    .filter(Boolean);
+
   const out=[];
 
   for(let i=0;i<chunks.length;i++){
-    const lines=chunks[i].split(/\n+/).map(x=>x.trim()).filter(Boolean);
+    const lines=chunks[i]
+      .split(/\n+/)
+      .map(x=>x.trim())
+      .filter(Boolean);
+
     if(!lines.length)continue;
 
-    const headingMatch=lines[0].match(/^(CHORUS|BRIDGE|REFRAIN|VERSE|VAMP|TAG|INTRO)\s*:?[.!]*$/i);
+    const headingMatch=lines[0].match(
+      /^(CHORUS|BRIDGE|REFRAIN|VERSE|VAMP|TAG|INTRO)\s*:?[.!]*$/i
+    );
 
     if(headingMatch){
       const heading=headingMatch[1].toUpperCase();
       let lyrics=lines.slice(1);
 
-      if(!lyrics.length&&chunks[i+1])
-        lyrics=chunks[++i].split(/\n+/).map(x=>x.trim()).filter(Boolean);
+      if(!lyrics.length&&chunks[i+1]){
+        lyrics=chunks[++i]
+          .split(/\n+/)
+          .map(x=>x.trim())
+          .filter(Boolean);
+      }
 
-      if(lyrics.length)
-        out.push(`<div class="lyric-section ${heading.toLowerCase()}"><div class="lyric-heading">${esc(heading)}</div><div class="stanza">${lyrics.map(esc).join('<br>')}</div></div>`);
+      if(lyrics.length){
+        out.push(
+          `<div class="lyric-section ${heading.toLowerCase()}">`+
+          `<div class="lyric-heading">${esc(heading)}</div>`+
+          `<div class="stanza">${lyrics.map(esc).join('<br>')}</div>`+
+          `</div>`
+        );
+      }
 
       continue;
     }
 
-    out.push(`<div class="stanza">${lines.map(esc).join('<br>')}</div>`);
+    out.push(
+      `<div class="stanza">${lines.map(esc).join('<br>')}</div>`
+    );
   }
 
   return out.join('');
@@ -52,23 +111,22 @@ const REMINDER_STORE='reminders';
 
 function openReminderDB(){
   return new Promise((resolve,reject)=>{
-    if(!('indexedDB' in window)){
-      reject(new Error('IndexedDB unavailable'));
-      return;
-    }
+    const request=indexedDB.open(REMINDER_DB,1);
 
-    const r=indexedDB.open(REMINDER_DB,1);
+    request.onupgradeneeded=()=>{
+      const db=request.result;
 
-    r.onupgradeneeded=()=>{
-      if(!r.result.objectStoreNames.contains(REMINDER_STORE)){
-        r.result.createObjectStore(REMINDER_STORE);
+      if(!db.objectStoreNames.contains(REMINDER_STORE)){
+        db.createObjectStore(REMINDER_STORE);
       }
     };
 
-    r.onsuccess=()=>resolve(r.result);
+    request.onsuccess=()=>{
+      resolve(request.result);
+    };
 
-    r.onerror=()=>{
-      reject(r.error||new Error('IndexedDB open failed'));
+    request.onerror=()=>{
+      reject(request.error);
     };
   });
 }
@@ -79,7 +137,7 @@ async function saveReminderState(key){
   return new Promise((resolve,reject)=>{
     const tx=db.transaction(REMINDER_STORE,'readwrite');
 
-    tx.objectStore(REMINDER_STORE).put(1,key);
+    tx.objectStore(REMINDER_STORE).put('1',key);
 
     tx.oncomplete=()=>{
       db.close();
@@ -88,34 +146,190 @@ async function saveReminderState(key){
 
     tx.onerror=()=>{
       db.close();
-      reject(tx.error||new Error('Reminder save failed'));
+      reject(tx.error);
+    };
+  });
+}
+
+async function removeReminderState(key){
+  const db=await openReminderDB();
+
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(REMINDER_STORE,'readwrite');
+
+    tx.objectStore(REMINDER_STORE).delete(key);
+
+    tx.oncomplete=()=>{
+      db.close();
+      resolve();
+    };
+
+    tx.onerror=()=>{
+      db.close();
+      reject(tx.error);
     };
   });
 }
 
 async function hasReminderState(key){
-  try{
-    const db=await openReminderDB();
+  const db=await openReminderDB();
 
-    return await new Promise((resolve,reject)=>{
-      const tx=db.transaction(REMINDER_STORE,'readonly');
-      const r=tx.objectStore(REMINDER_STORE).get(key);
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(REMINDER_STORE,'readonly');
 
-      r.onsuccess=()=>{
-        resolve(r.result===1);
-      };
+    const request=tx
+      .objectStore(REMINDER_STORE)
+      .get(key);
 
-      r.onerror=()=>{
-        reject(r.error||new Error('Reminder read failed'));
-      };
+    request.onsuccess=()=>{
+      db.close();
+      resolve(!!request.result);
+    };
 
-      tx.oncomplete=()=>{
-        db.close();
-      };
-    });
-  }catch(e){
-    return localStorage.getItem(key)==='1';
+    request.onerror=()=>{
+      db.close();
+      reject(request.error);
+    };
+  });
+}
+
+async function restoreReminderButtons(){
+  const buttons=document.querySelectorAll('.reminder-btn');
+
+  for(const btn of buttons){
+
+    const key=btn.dataset.reminderKey;
+
+    if(!key)continue;
+
+    let enabled=localStorage.getItem(key)==='1';
+
+    try{
+      if(await hasReminderState(key)){
+        enabled=true;
+      }
+    }catch(e){}
+
+    if(enabled){
+      btn.textContent='✓ Reminder enabled';
+      btn.classList.add('enabled');
+    }else{
+      btn.textContent='🔔 Remind me';
+      btn.classList.remove('enabled');
+    }
   }
+}
+
+
+/* =========================================================
+   SEND NATIVE ANDROID REMINDER COMMAND
+   ========================================================= */
+
+function sendNativeReminder(url){
+
+  const frame=document.createElement('iframe');
+
+  frame.style.display='none';
+  frame.src=url;
+
+  document.body.appendChild(frame);
+
+  setTimeout(()=>{
+    frame.remove();
+  },2000);
+}
+
+
+/* =========================================================
+   REMINDER TOGGLE
+   Enable / Disable
+   ========================================================= */
+
+async function toggleReminder(btn){
+
+  const day=btn.dataset.day;
+  const time=btn.dataset.time;
+  const event=btn.dataset.event||'';
+  const key=btn.dataset.reminderKey;
+
+  if(!day||!time||!key)return;
+
+
+  /* =======================================================
+     DISABLE REMINDER
+     ======================================================= */
+
+  if(btn.classList.contains('enabled')){
+
+    localStorage.removeItem(key);
+
+    try{
+      await removeReminderState(key);
+    }catch(e){}
+
+    btn.textContent='🔔 Remind me';
+    btn.classList.remove('enabled');
+
+    const nativeUrl=
+      'melgc://remind?action=cancel'+
+      '&day='+encodeURIComponent(day)+
+      '&time='+encodeURIComponent(time)+
+      '&event='+encodeURIComponent(event);
+
+    sendNativeReminder(nativeUrl);
+
+    return;
+  }
+
+
+  /* =======================================================
+     ENABLE REMINDER
+     ======================================================= */
+
+  if('Notification' in window){
+
+    try{
+
+      let permission=Notification.permission;
+
+      if(permission==='default'){
+        permission=await Notification.requestPermission();
+      }
+
+      if(permission==='denied'){
+        alert(
+          'Notifications are blocked. Please allow notifications for MELGC Songbook in Android settings.'
+        );
+      }
+
+    }catch(e){}
+  }
+
+
+  /* Save persistent state */
+
+  localStorage.setItem(key,'1');
+
+  try{
+    await saveReminderState(key);
+  }catch(e){}
+
+
+  /* Update button */
+
+  btn.textContent='✓ Reminder enabled';
+  btn.classList.add('enabled');
+
+
+  /* Send native Android schedule command */
+
+  const nativeUrl=
+    'melgc://remind?action=schedule'+
+    '&day='+encodeURIComponent(day)+
+    '&time='+encodeURIComponent(time)+
+    '&event='+encodeURIComponent(event);
+
+  sendNativeReminder(nativeUrl);
 }
 
 
@@ -126,8 +340,12 @@ async function hasReminderState(key){
 let deferredInstallPrompt=null;
 
 async function load(){
-  state.hymns.en=await fetch('hymns-en.json').then(r=>r.json());
-  state.hymns.lg=await fetch('hymns-lg.json').then(r=>r.json());
+
+  state.hymns.en=
+    await fetch('hymns-en.json').then(r=>r.json());
+
+  state.hymns.lg=
+    await fetch('hymns-lg.json').then(r=>r.json());
 
   renderList('en','');
   renderList('lg','');
@@ -142,24 +360,46 @@ async function load(){
    ========================================================= */
 
 function showScreen(id){
-  $$('.screen').forEach(x=>x.classList.toggle('active',x.id===id));
-  $$('.bottom-nav button').forEach(b=>b.classList.toggle('nav-active',b.dataset.screen===id));
+
+  $$('.screen').forEach(x=>
+    x.classList.toggle('active',x.id===id)
+  );
+
+  $$('.bottom-nav button').forEach(b=>
+    b.classList.toggle(
+      'nav-active',
+      b.dataset.screen===id
+    )
+  );
+
   window.scrollTo(0,0);
 }
 
 $$('[data-screen]').forEach(b=>
-  b.addEventListener('click',()=>showScreen(b.dataset.screen))
+  b.addEventListener(
+    'click',
+    ()=>showScreen(b.dataset.screen)
+  )
 );
 
 $$('.back').forEach(b=>
-  b.addEventListener('click',()=>showScreen('home'))
+  b.addEventListener(
+    'click',
+    ()=>showScreen('home')
+  )
 );
 
-$('#menuBtn').addEventListener('click',()=>showScreen('about'));
+$('#menuBtn').addEventListener(
+  'click',
+  ()=>showScreen('about')
+);
 
-$('#themeBtn').addEventListener('click',()=>{
-  document.body.classList.toggle('light');
-});
+$('#themeBtn').addEventListener(
+  'click',
+  ()=>{
+    document.body.classList.toggle('light');
+  }
+);
 
 
 /* =========================================================
@@ -167,46 +407,71 @@ $('#themeBtn').addEventListener('click',()=>{
    ========================================================= */
 
 if(localStorage.getItem('melgc-install-dismissed')!=='1'){
-  window.addEventListener('beforeinstallprompt',e=>{
-    e.preventDefault();
-    deferredInstallPrompt=e;
 
-    const b=$('#installBanner');
-    if(b)b.hidden=false;
-  });
+  window.addEventListener(
+    'beforeinstallprompt',
+    e=>{
+      e.preventDefault();
+
+      deferredInstallPrompt=e;
+
+      const b=$('#installBanner');
+
+      if(b)b.hidden=false;
+    }
+  );
 }
 
 const ib=$('#installBtn');
 
 if(ib){
-  ib.addEventListener('click',async()=>{
-    if(!deferredInstallPrompt)return;
 
-    deferredInstallPrompt.prompt();
-    await deferredInstallPrompt.userChoice;
+  ib.addEventListener(
+    'click',
+    async()=>{
 
-    deferredInstallPrompt=null;
+      if(!deferredInstallPrompt)return;
 
-    const b=$('#installBanner');
-    if(b)b.hidden=true;
-  });
+      deferredInstallPrompt.prompt();
+
+      await deferredInstallPrompt.userChoice;
+
+      deferredInstallPrompt=null;
+
+      const b=$('#installBanner');
+
+      if(b)b.hidden=true;
+    }
+  );
 }
 
 const db=$('#dismissInstall');
 
 if(db){
-  db.addEventListener('click',()=>{
-    localStorage.setItem('melgc-install-dismissed','1');
 
-    const b=$('#installBanner');
-    if(b)b.hidden=true;
-  });
+  db.addEventListener(
+    'click',
+    ()=>{
+      localStorage.setItem(
+        'melgc-install-dismissed',
+        '1'
+      );
+
+      const b=$('#installBanner');
+
+      if(b)b.hidden=true;
+    }
+  );
 }
 
-window.addEventListener('appinstalled',()=>{
-  const b=$('#installBanner');
-  if(b)b.hidden=true;
-});
+window.addEventListener(
+  'appinstalled',
+  ()=>{
+    const b=$('#installBanner');
+
+    if(b)b.hidden=true;
+  }
+);
 
 
 /* =========================================================
@@ -216,20 +481,30 @@ window.addEventListener('appinstalled',()=>{
 const sb=$('#shareApp');
 
 if(sb){
-  sb.addEventListener('click',async()=>{
-    const data={
-      title:'MELGC Songbook',
-      text:'Mulago Eternal Life Gospel Church Songbook',
-      url:location.href
-    };
 
-    try{
-      if(navigator.share)
-        await navigator.share(data);
-      else if(navigator.clipboard)
-        await navigator.clipboard.writeText(location.href);
-    }catch(e){}
-  });
+  sb.addEventListener(
+    'click',
+    async()=>{
+
+      const data={
+        title:'MELGC Songbook',
+        text:'Mulago Eternal Life Gospel Church Songbook',
+        url:location.href
+      };
+
+      try{
+
+        if(navigator.share){
+          await navigator.share(data);
+        }else if(navigator.clipboard){
+          await navigator.clipboard.writeText(
+            location.href
+          );
+        }
+
+      }catch(e){}
+    }
+  );
 }
 
 
@@ -238,43 +513,84 @@ if(sb){
    ========================================================= */
 
 function renderList(lang,q){
-  const box=lang==='en'?$('#listEn'):$('#listLg');
+
+  const box=
+    lang==='en'
+      ?$('#listEn')
+      :$('#listLg');
+
   const term=q.trim().toLowerCase();
 
   const arr=state.hymns[lang].filter(h=>
     !term||
     String(h.number).includes(term)||
-    String(h.title||'').toLowerCase().includes(term)
+    String(h.title||'')
+      .toLowerCase()
+      .includes(term)
   );
 
-  box.innerHTML=arr.map(h=>{
-    const first=String(h.lyrics||'')
-      .split(/\n+/)
-      .map(x=>x.trim())
-      .find(Boolean)||'';
+  box.innerHTML=
+    arr.map(h=>{
 
-    return `
-      <button class="hymn-row ${lang==='en'?'english-row':''}" data-lang="${lang}" data-num="${h.number}">
-        <span class="num">${h.number}</span>
-        <span class="row-main">
-          <span class="row-title">${esc(h.title)}</span>
-          ${lang==='en'?`<span class="row-preview">${esc(first)}</span>`:''}
-        </span>
-        ${lang==='en'?'<span class="row-fav">☆</span>':`<span class="row-key">${esc(h.key||'')}</span>`}
-      </button>
-    `;
-  }).join('')||'<div class="empty">No hymns found.</div>';
+      const first=String(h.lyrics||'')
+        .split(/\n+/)
+        .map(x=>x.trim())
+        .find(Boolean)||'';
+
+      return `
+        <button
+          class="hymn-row ${lang==='en'?'english-row':''}"
+          data-lang="${lang}"
+          data-num="${h.number}">
+
+          <span class="num">${h.number}</span>
+
+          <span class="row-main">
+
+            <span class="row-title">
+              ${esc(h.title)}
+            </span>
+
+            ${
+              lang==='en'
+                ?`<span class="row-preview">${esc(first)}</span>`
+                :''
+            }
+
+          </span>
+
+          ${
+            lang==='en'
+              ?'<span class="row-fav">☆</span>'
+              :`<span class="row-key">${esc(h.key||'')}</span>`
+          }
+
+        </button>
+      `;
+
+    }).join('')||
+    '<div class="empty">No hymns found.</div>';
 
   box.querySelectorAll('.hymn-row').forEach(x=>
-    x.addEventListener('click',()=>openHymn(lang,Number(x.dataset.num)))
+    x.addEventListener(
+      'click',
+      ()=>openHymn(
+        lang,
+        Number(x.dataset.num)
+      )
+    )
   );
 }
 
 function normalizeHymn(h){
+
   if(!h||!h.key)return h;
 
   const keyText=String(h.key).trim();
-  const match=keyText.match(/^([A-G](?:#|b)?)(?:\s+(.+))?$/);
+
+  const match=keyText.match(
+    /^([A-G](?:#|b)?)(?:\s+(.+))?$/
+  );
 
   if(!match)return h;
 
@@ -282,13 +598,26 @@ function normalizeHymn(h){
   const extra=match[2]||'';
 
   return extra
-    ? {...h,key:cleanKey,lyrics:extra+(h.lyrics?'\n'+h.lyrics:'')}
-    : {...h,key:cleanKey};
+    ?{
+        ...h,
+        key:cleanKey,
+        lyrics:
+          extra+
+          (h.lyrics?'\n'+h.lyrics:'')
+      }
+    :{
+        ...h,
+        key:cleanKey
+      };
 }
 
 function openHymn(lang,num){
+
   const arr=state.hymns[lang];
-  const idx=arr.findIndex(h=>h.number===num);
+
+  const idx=arr.findIndex(
+    h=>h.number===num
+  );
 
   if(idx<0)return;
 
@@ -298,24 +627,39 @@ function openHymn(lang,num){
   const h=normalizeHymn(arr[idx]);
 
   $('#readerTitle').textContent=h.title;
-  $('#readerKey').textContent=h.key?`Key: ${h.key}`:'';
+
+  $('#readerKey').textContent=
+    h.key
+      ?`Key: ${h.key}`
+      :'';
 
   $('#readerBody').innerHTML=
     formatLyrics(lang,h)||
     '<div class="stanza">Lyrics not available in the source book.</div>';
 
   $('#reader').classList.add('open');
-  $('#reader').setAttribute('aria-hidden','false');
+
+  $('#reader').setAttribute(
+    'aria-hidden',
+    'false'
+  );
 
   updateFavButton();
 
   $('#reader').scrollTo(0,0);
 }
 
-$('#closeReader').addEventListener('click',()=>{
-  $('#reader').classList.remove('open');
-  $('#reader').setAttribute('aria-hidden','true');
-});
+$('#closeReader').addEventListener(
+  'click',
+  ()=>{
+    $('#reader').classList.remove('open');
+
+    $('#reader').setAttribute(
+      'aria-hidden',
+      'true'
+    );
+  }
+);
 
 
 /* =========================================================
@@ -323,62 +667,114 @@ $('#closeReader').addEventListener('click',()=>{
    ========================================================= */
 
 function favKey(){
-  return `${state.currentLang}-${state.hymns[state.currentLang][state.currentIndex].number}`;
+
+  return `${state.currentLang}-${
+    state.hymns[state.currentLang][state.currentIndex].number
+  }`;
 }
 
 function getFavs(){
+
   try{
-    return JSON.parse(localStorage.getItem('melgc-favs')||'[]');
+    return JSON.parse(
+      localStorage.getItem('melgc-favs')||'[]'
+    );
   }catch{
     return[];
   }
 }
 
 function updateFavButton(){
-  const on=getFavs().includes(favKey());
-  $('#favReader').textContent=on?'★':'☆';
+
+  const on=getFavs().includes(
+    favKey()
+  );
+
+  $('#favReader').textContent=
+    on?'★':'☆';
 }
 
-$('#favReader').addEventListener('click',()=>{
-  let f=getFavs();
-  let k=favKey();
+$('#favReader').addEventListener(
+  'click',
+  ()=>{
 
-  f=f.includes(k)
-    ?f.filter(x=>x!==k)
-    :[...f,k];
+    let f=getFavs();
+    let k=favKey();
 
-  localStorage.setItem('melgc-favs',JSON.stringify(f));
+    f=f.includes(k)
+      ?f.filter(x=>x!==k)
+      :[...f,k];
 
-  updateFavButton();
-  renderFavorites();
-});
+    localStorage.setItem(
+      'melgc-favs',
+      JSON.stringify(f)
+    );
+
+    updateFavButton();
+    renderFavorites();
+  }
+);
 
 function renderFavorites(){
+
   const box=$('#favList');
+
   const f=getFavs();
+
   const items=[];
 
   f.forEach(k=>{
+
     const [lang,n]=k.split('-');
-    const h=state.hymns[lang]?.find(x=>x.number===Number(n));
+
+    const h=
+      state.hymns[lang]?.find(
+        x=>x.number===Number(n)
+      );
 
     if(h)items.push({lang,h});
   });
 
-  box.innerHTML=items.length
-    ?items.map(x=>`
-      <button class="hymn-row" data-lang="${x.lang}" data-num="${x.h.number}">
-        <span class="num">${x.h.number}</span>
-        <span class="row-main">
-          <span class="row-title">${esc(x.h.title)}</span>
-        </span>
-        <span class="row-key">${x.lang==='en'?'EN':'LG'}</span>
-      </button>
-    `).join('')
-    :'<div class="empty">No favourites yet. Tap ☆ while reading a hymn.</div>';
+  box.innerHTML=
+    items.length
+
+      ?items.map(x=>`
+
+        <button
+          class="hymn-row"
+          data-lang="${x.lang}"
+          data-num="${x.h.number}">
+
+          <span class="num">
+            ${x.h.number}
+          </span>
+
+          <span class="row-main">
+
+            <span class="row-title">
+              ${esc(x.h.title)}
+            </span>
+
+          </span>
+
+          <span class="row-key">
+            ${x.lang==='en'?'EN':'LG'}
+          </span>
+
+        </button>
+
+      `).join('')
+
+      :'<div class="empty">No favourites yet. Tap ☆ while reading a hymn.</div>';
 
   box.querySelectorAll('.hymn-row').forEach(x=>
-    x.addEventListener('click',()=>openHymn(x.dataset.lang,Number(x.dataset.num)))
+    x.addEventListener(
+      'click',
+      ()=>openHymn(
+        x.dataset.lang,
+        Number(x.dataset.num)
+      )
+    )
   );
 }
 
@@ -387,22 +783,46 @@ function renderFavorites(){
    NEXT / PREVIOUS HYMN
    ========================================================= */
 
-$('#prevHymn').addEventListener('click',()=>move(-1));
-$('#nextHymn').addEventListener('click',()=>move(1));
+$('#prevHymn').addEventListener(
+  'click',
+  ()=>move(-1)
+);
+
+$('#nextHymn').addEventListener(
+  'click',
+  ()=>move(1)
+);
 
 function move(d){
-  const arr=state.hymns[state.currentLang];
+
+  const arr=
+    state.hymns[state.currentLang];
 
   state.currentIndex=
-    (state.currentIndex+d+arr.length)%arr.length;
+    (
+      state.currentIndex+
+      d+
+      arr.length
+    )%arr.length;
 
-  const h=normalizeHymn(arr[state.currentIndex]);
+  const h=
+    normalizeHymn(
+      arr[state.currentIndex]
+    );
 
-  $('#readerTitle').textContent=h.title;
-  $('#readerKey').textContent=h.key?`Key: ${h.key}`:'';
+  $('#readerTitle').textContent=
+    h.title;
+
+  $('#readerKey').textContent=
+    h.key
+      ?`Key: ${h.key}`
+      :'';
 
   $('#readerBody').innerHTML=
-    formatLyrics(state.currentLang,h)||
+    formatLyrics(
+      state.currentLang,
+      h
+    )||
     '<div class="stanza">Lyrics not available in the source book.</div>';
 
   updateFavButton();
@@ -417,6 +837,7 @@ function move(d){
    ========================================================= */
 
 function renderSermons(){
+
   const videos=[
     's1wsCuB_g_U',
     'YsV4oHcb8ds',
@@ -431,20 +852,34 @@ function renderSermons(){
   ];
 
   $('#sermonList').innerHTML=
-    videos.slice().reverse().map((id,i)=>`
-      <div class="sermon">
-        <div class="sermon-label">Sunday Service ${i+1}</div>
-        <div class="sermon-player">
-          <iframe
-            src="https://www.youtube.com/embed/${id}"
-            title="MELGC Sunday Service ${i+1}"
-            loading="lazy"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowfullscreen>
-          </iframe>
-        </div>
-      </div>
-    `).join('');
+    videos
+      .slice()
+      .reverse()
+      .map(
+        (id,i)=>`
+
+          <div class="sermon">
+
+            <div class="sermon-label">
+              Sunday Service ${i+1}
+            </div>
+
+            <div class="sermon-player">
+
+              <iframe
+                src="https://www.youtube.com/embed/${id}"
+                title="MELGC Sunday Service ${i+1}"
+                loading="lazy"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen>
+              </iframe>
+
+            </div>
+
+          </div>
+
+        `
+      ).join('');
 }
 
 
@@ -453,6 +888,7 @@ function renderSermons(){
    ========================================================= */
 
 const programme=[
+
   {
     day:'Monday',
     events:[
@@ -460,6 +896,7 @@ const programme=[
       ['5:00 PM','7:00 PM','Bible Study']
     ]
   },
+
   {
     day:'Tuesday',
     events:[
@@ -467,12 +904,14 @@ const programme=[
       ['5:00 PM','7:00 PM','Bible Study']
     ]
   },
+
   {
     day:'Wednesday',
     events:[
       ['12:00 PM','1:00 PM','Lunch Hour (only)']
     ]
   },
+
   {
     day:'Thursday',
     events:[
@@ -480,6 +919,7 @@ const programme=[
       ['5:00 PM','7:00 PM','Bible Study']
     ]
   },
+
   {
     day:'Friday',
     events:[
@@ -488,154 +928,117 @@ const programme=[
       ['8:00 PM','11:00 PM','Night Prayer']
     ]
   }
+
 ];
 
 function reminderKey(day,time){
+
   return `melgc-reminder-${day}-${time}`;
 }
 
 
 /* =========================================================
    DISPLAY PROGRAMME
-   Restores enabled reminder buttons when page/app opens.
    ========================================================= */
 
 function renderProgramme(){
+
   const box=$('#programmeList');
 
   if(!box)return;
 
-  box.innerHTML=programme.map(d=>`
-    <div class="programme-day">
-      <h3>${d.day}</h3>
+  box.innerHTML=
+    programme.map(d=>`
 
-      ${d.events.map(e=>{
-        const key=reminderKey(d.day,e[0]);
-        const enabled=localStorage.getItem(key)==='1';
+      <div class="programme-day">
 
-        return `
-          <div class="programme-event">
-            <div class="programme-time">${e[0]} – ${e[1]}</div>
+        <h3>${d.day}</h3>
 
-            <div class="programme-name">${esc(e[2])}</div>
+        ${d.events.map(e=>{
 
-            <button
-              class="reminder-btn${enabled?' enabled':''}"
-              type="button"
-              data-day="${d.day}"
-              data-time="${e[0]}"
-              data-event="${esc(e[2])}">
-              ${enabled?'✓ Reminder enabled':'🔔 Remind me'}
-            </button>
-          </div>
-        `;
-      }).join('')}
-    </div>
-  `).join('');
+          const key=
+            reminderKey(
+              d.day,
+              e[0]
+            );
+
+          const enabled=
+            localStorage.getItem(key)==='1';
+
+          return `
+
+            <div class="programme-event">
+
+              <div class="programme-time">
+                ${e[0]} – ${e[1]}
+              </div>
+
+              <div class="programme-name">
+                ${esc(e[2])}
+              </div>
+
+              <button
+                class="reminder-btn${enabled?' enabled':''}"
+                type="button"
+                data-reminder-key="${key}"
+                data-day="${d.day}"
+                data-time="${e[0]}"
+                data-event="${esc(e[2])}">
+
+                ${
+                  enabled
+                    ?'✓ Reminder enabled'
+                    :'🔔 Remind me'
+                }
+
+              </button>
+
+            </div>
+
+          `;
+
+        }).join('')}
+
+      </div>
+
+    `).join('');
+
+
+  /* Connect every reminder button to the
+     enable/disable toggle */
 
   box.querySelectorAll('.reminder-btn').forEach(b=>
-    b.addEventListener('click',()=>requestWebReminder(b))
+    b.addEventListener(
+      'click',
+      ()=>toggleReminder(b)
+    )
   );
+
+
+  /* Restore persistent state */
 
   restoreReminderButtons();
 }
 
 
 /* =========================================================
-   RESTORE REMINDER BUTTONS FROM INDEXEDDB
-   ========================================================= */
-
-async function restoreReminderButtons(){
-  const buttons=document.querySelectorAll('.reminder-btn');
-
-  for(const btn of buttons){
-    const key=reminderKey(
-      btn.dataset.day,
-      btn.dataset.time
-    );
-
-    if(await hasReminderState(key)){
-      btn.textContent='✓ Reminder enabled';
-      btn.classList.add('enabled');
-    }
-  }
-}
-
-
-/* =========================================================
-   SET REMINDER
-   Saves the state permanently and then sends the native
-   melgc://remind link to the Android application.
-   ========================================================= */
-
-async function requestWebReminder(btn){
-
-  if(btn.classList.contains('enabled'))return;
-
-  if(!('Notification' in window)){
-    alert('Notifications are not supported on this device/browser.');
-    return;
-  }
-
-  if(Notification.permission==='default'){
-    await Notification.requestPermission();
-  }
-
-  if(Notification.permission!=='granted'){
-    alert('Notifications are blocked. Please allow notifications for MELGC Songbook in Android settings.');
-    return;
-  }
-
-  const day=btn.dataset.day;
-  const time=btn.dataset.time;
-  const event=btn.dataset.event;
-  const key=reminderKey(day,time);
-
-  /* Save the reminder state */
-  localStorage.setItem(key,'1');
-
-  try{
-    await saveReminderState(key);
-  }catch(e){}
-
-  /* Immediately keep the button enabled */
-  btn.textContent='✓ Reminder enabled';
-  btn.classList.add('enabled');
-
-  /*
-   * Send the native reminder request without navigating
-   * the MELGC Songbook page away.
-   */
-  const nativeUrl=
-    'melgc://remind?day='+
-    encodeURIComponent(day)+
-    '&time='+
-    encodeURIComponent(time)+
-    '&event='+
-    encodeURIComponent(event);
-
-  const frame=document.createElement('iframe');
-
-  frame.style.display='none';
-  frame.src=nativeUrl;
-
-  document.body.appendChild(frame);
-
-  setTimeout(()=>{
-    frame.remove();
-  },2000);
-}
-
-/* =========================================================
    SEARCH
    ========================================================= */
 
-$('#searchEn').addEventListener('input',e=>
-  renderList('en',e.target.value)
+$('#searchEn').addEventListener(
+  'input',
+  e=>renderList(
+    'en',
+    e.target.value
+  )
 );
 
-$('#searchLg').addEventListener('input',e=>
-  renderList('lg',e.target.value)
+$('#searchLg').addEventListener(
+  'input',
+  e=>renderList(
+    'lg',
+    e.target.value
+  )
 );
 
 
@@ -644,24 +1047,49 @@ $('#searchLg').addEventListener('input',e=>
    ========================================================= */
 
 function applyFont(){
-  $('#readerBody').style.fontSize=state.font+'px';
-  localStorage.setItem('melgc-font',String(state.font));
+
+  $('#readerBody').style.fontSize=
+    state.font+'px';
+
+  localStorage.setItem(
+    'melgc-font',
+    String(state.font)
+  );
 }
 
-$('#smaller').addEventListener('click',()=>{
-  state.font=Math.max(14,state.font-2);
-  applyFont();
-});
+$('#smaller').addEventListener(
+  'click',
+  ()=>{
+    state.font=
+      Math.max(
+        14,
+        state.font-2
+      );
 
-$('#larger').addEventListener('click',()=>{
-  state.font=Math.min(34,state.font+2);
-  applyFont();
-});
+    applyFont();
+  }
+);
 
-$('#resetFont').addEventListener('click',()=>{
-  state.font=19;
-  applyFont();
-});
+$('#larger').addEventListener(
+  'click',
+  ()=>{
+    state.font=
+      Math.min(
+        34,
+        state.font+2
+      );
+
+    applyFont();
+  }
+);
+
+$('#resetFont').addEventListener(
+  'click',
+  ()=>{
+    state.font=19;
+    applyFont();
+  }
+);
 
 
 /* =========================================================
@@ -672,8 +1100,12 @@ load().then(()=>{
   applyFont();
 });
 
-if('serviceWorker'in navigator){
-  window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('sw.js');
-  });
-}
+if('serviceWorker' in navigator){
+
+  window.addEventListener(
+    'load',
+    ()=>{
+      navigator.serviceWorker.register('sw.js');
+    }
+  );
+    }
