@@ -13,7 +13,7 @@ const BIBLE_STORAGE = {
   database: 'melgc-bible-db',
   version: 1,
   store: 'bibles',
-  dataVersion: '2026-09-12-v1'
+  dataVersion: '2026-09-13-v2'
 };
 
 const BIBLE_FILES = {
