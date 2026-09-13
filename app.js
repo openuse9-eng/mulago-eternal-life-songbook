@@ -424,12 +424,16 @@ async function load(){
 
 /* =========================================================
    NAVIGATION
+   Android phone Back button support
    ========================================================= */
 
-function showScreen(id){
+function showScreen(id, addHistory=true){
 
   $$('.screen').forEach(x=>
-    x.classList.toggle('active',x.id===id)
+    x.classList.toggle(
+      'active',
+      x.id===id
+    )
   );
 
   $$('.bottom-nav button').forEach(b=>
@@ -440,14 +444,110 @@ function showScreen(id){
   );
 
   window.scrollTo(0,0);
+
+  /*
+     Create browser history for every app screen.
+
+     This allows the Android phone Back button to return
+     to the previous MELGC screen instead of closing
+     the app.
+  */
+
+  if(addHistory){
+
+    const current=
+      history.state?.screen;
+
+    if(current!==id){
+
+      history.pushState(
+        {screen:id},
+        '',
+        '#'+id
+      );
+
+    }
+  }
 }
+
+
+/*
+   Start the app with Home as the first history entry.
+*/
+
+if(!history.state?.screen){
+
+  history.replaceState(
+    {screen:'home'},
+    '',
+    '#home'
+  );
+
+}
+
+
+/*
+   Android phone Back button.
+
+   If the hymn reader is open, close it first.
+
+   Otherwise go to the previous MELGC screen.
+*/
+
+window.addEventListener(
+  'popstate',
+  ()=>{
+
+    /*
+       Close hymn reader first.
+    */
+
+    if($('#reader').classList.contains('open')){
+
+      $('#reader').classList.remove('open');
+
+      $('#reader').setAttribute(
+        'aria-hidden',
+        'true'
+      );
+
+      return;
+    }
+
+
+    /*
+       Return to the previous app screen.
+    */
+
+    const screen=
+      history.state?.screen || 'home';
+
+    showScreen(
+      screen,
+      false
+    );
+
+  }
+);
+
+
+/*
+   Bottom navigation.
+*/
 
 $$('[data-screen]').forEach(b=>
   b.addEventListener(
     'click',
-    ()=>showScreen(b.dataset.screen)
+    ()=>showScreen(
+      b.dataset.screen
+    )
   )
 );
+
+
+/*
+   Buttons marked .back return to Home.
+*/
 
 $$('.back').forEach(b=>
   b.addEventListener(
@@ -456,19 +556,15 @@ $$('.back').forEach(b=>
   )
 );
 
+
+/*
+   Menu button.
+*/
+
 $('#menuBtn').addEventListener(
   'click',
   ()=>showScreen('about')
 );
-
-$('#themeBtn').addEventListener(
-  'click',
-  ()=>{
-    document.body.classList.toggle('light');
-  }
-);
-
-
 /* =========================================================
    INSTALL APP
    ========================================================= */
