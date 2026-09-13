@@ -10,7 +10,7 @@
  * This forces browsers that already installed the old
  * service worker to remove the old cache.
  */
-const CACHE_NAME = 'melgc-songbook-v12';
+const CACHE_NAME = 'melgc-songbook-v13';
 
 
 /* =========================================================
