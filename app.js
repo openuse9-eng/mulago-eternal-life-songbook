@@ -193,7 +193,13 @@ async function hasReminderState(key){
   });
 }
 
+
+/* =========================================================
+   RESTORE REMINDER BUTTONS
+   ========================================================= */
+
 async function restoreReminderButtons(){
+
   const buttons=document.querySelectorAll('.reminder-btn');
 
   for(const btn of buttons){
@@ -205,17 +211,36 @@ async function restoreReminderButtons(){
     let enabled=localStorage.getItem(key)==='1';
 
     try{
+
       if(await hasReminderState(key)){
         enabled=true;
       }
+
     }catch(e){}
 
+
+    /*
+       IMPORTANT:
+       Check localStorage again after IndexedDB finishes.
+
+       This prevents an old restore operation from changing
+       a button back to "Reminder enabled" after the user
+       has already disabled it.
+    */
+
+    enabled=localStorage.getItem(key)==='1';
+
+
     if(enabled){
+
       btn.textContent='✓ Reminder enabled';
       btn.classList.add('enabled');
+
     }else{
+
       btn.textContent='🔔 Remind me';
       btn.classList.remove('enabled');
+
     }
   }
 }
@@ -259,16 +284,45 @@ async function toggleReminder(btn){
      DISABLE REMINDER
      ======================================================= */
 
-  if(btn.classList.contains('enabled')){
+  /*
+     Check BOTH the button class and localStorage.
+
+     This makes disabling reliable even if the button state
+     was restored from saved data.
+  */
+
+  if(
+    btn.classList.contains('enabled') ||
+    localStorage.getItem(key)==='1'
+  ){
+
+    /*
+       Immediately update the button.
+
+       This makes the UI respond instantly.
+    */
+
+    btn.textContent='🔔 Remind me';
+    btn.classList.remove('enabled');
+
+
+    /*
+       Remove persistent browser state.
+    */
 
     localStorage.removeItem(key);
 
     try{
+
       await removeReminderState(key);
+
     }catch(e){}
 
-    btn.textContent='🔔 Remind me';
-    btn.classList.remove('enabled');
+
+    /*
+       Tell the native Android application to cancel
+       the scheduled alarm.
+    */
 
     const nativeUrl=
       'melgc://remind?action=cancel'+
@@ -293,35 +347,48 @@ async function toggleReminder(btn){
       let permission=Notification.permission;
 
       if(permission==='default'){
-        permission=await Notification.requestPermission();
+
+        permission=
+          await Notification.requestPermission();
+
       }
 
       if(permission==='denied'){
+
         alert(
           'Notifications are blocked. Please allow notifications for MELGC Songbook in Android settings.'
         );
+
       }
 
     }catch(e){}
   }
 
 
-  /* Save persistent state */
+  /* =======================================================
+     SAVE PERSISTENT STATE
+     ======================================================= */
 
   localStorage.setItem(key,'1');
 
   try{
+
     await saveReminderState(key);
+
   }catch(e){}
 
 
-  /* Update button */
+  /* =======================================================
+     UPDATE BUTTON
+     ======================================================= */
 
   btn.textContent='✓ Reminder enabled';
   btn.classList.add('enabled');
 
 
-  /* Send native Android schedule command */
+  /* =======================================================
+     SEND NATIVE ANDROID SCHEDULE COMMAND
+     ======================================================= */
 
   const nativeUrl=
     'melgc://remind?action=schedule'+
@@ -452,6 +519,7 @@ if(db){
   db.addEventListener(
     'click',
     ()=>{
+
       localStorage.setItem(
         'melgc-install-dismissed',
         '1'
@@ -467,9 +535,11 @@ if(db){
 window.addEventListener(
   'appinstalled',
   ()=>{
+
     const b=$('#installBanner');
 
     if(b)b.hidden=true;
+
   }
 );
 
@@ -495,11 +565,15 @@ if(sb){
       try{
 
         if(navigator.share){
+
           await navigator.share(data);
+
         }else if(navigator.clipboard){
+
           await navigator.clipboard.writeText(
             location.href
           );
+
         }
 
       }catch(e){}
@@ -652,12 +726,14 @@ function openHymn(lang,num){
 $('#closeReader').addEventListener(
   'click',
   ()=>{
+
     $('#reader').classList.remove('open');
 
     $('#reader').setAttribute(
       'aria-hidden',
       'true'
     );
+
   }
 );
 
@@ -676,11 +752,15 @@ function favKey(){
 function getFavs(){
 
   try{
+
     return JSON.parse(
       localStorage.getItem('melgc-favs')||'[]'
     );
+
   }catch{
+
     return[];
+
   }
 }
 
@@ -712,6 +792,7 @@ $('#favReader').addEventListener(
 
     updateFavButton();
     renderFavorites();
+
   }
 );
 
@@ -733,6 +814,7 @@ function renderFavorites(){
       );
 
     if(h)items.push({lang,h});
+
   });
 
   box.innerHTML=
@@ -934,6 +1016,7 @@ const programme=[
 function reminderKey(day,time){
 
   return `melgc-reminder-${day}-${time}`;
+
 }
 
 
@@ -1018,6 +1101,7 @@ function renderProgramme(){
   /* Restore persistent state */
 
   restoreReminderButtons();
+
 }
 
 
@@ -1055,11 +1139,13 @@ function applyFont(){
     'melgc-font',
     String(state.font)
   );
+
 }
 
 $('#smaller').addEventListener(
   'click',
   ()=>{
+
     state.font=
       Math.max(
         14,
@@ -1067,12 +1153,14 @@ $('#smaller').addEventListener(
       );
 
     applyFont();
+
   }
 );
 
 $('#larger').addEventListener(
   'click',
   ()=>{
+
     state.font=
       Math.min(
         34,
@@ -1080,14 +1168,17 @@ $('#larger').addEventListener(
       );
 
     applyFont();
+
   }
 );
 
 $('#resetFont').addEventListener(
   'click',
   ()=>{
+
     state.font=19;
     applyFont();
+
   }
 );
 
@@ -1097,15 +1188,21 @@ $('#resetFont').addEventListener(
    ========================================================= */
 
 load().then(()=>{
+
   applyFont();
+
 });
+
 
 if('serviceWorker' in navigator){
 
   window.addEventListener(
     'load',
     ()=>{
+
       navigator.serviceWorker.register('sw.js');
+
     }
   );
+
     }
