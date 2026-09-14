@@ -15,11 +15,21 @@
   }
   async function load(lang){
     if(state[lang]) return state[lang];
-    const r=await fetch(lang==='en'?'bible-en.json':'bible-lg.json',{cache:'no-cache'});
-    if(!r.ok) throw Error('Could not load the Bible.');
-    const data=await r.json();
-    if(!Array.isArray(data.books)) throw Error('Bible data is invalid.');
-    state[lang]=getVerses(data); return state[lang];
+
+    // Reuse the Bible reader's existing offline-first loader.
+    // This avoids downloading the large Bible files a second time.
+    let data;
+    if(typeof loadBibleData === 'function'){
+      data = await loadBibleData(lang);
+    }else{
+      const r=await fetch(lang==='en'?'bible-en.json':'bible-lg.json',{cache:'no-cache'});
+      if(!r.ok) throw Error('Could not load the Bible.');
+      data=await r.json();
+    }
+
+    if(!Array.isArray(data?.books)) throw Error('Bible data is invalid.');
+    state[lang]=getVerses(data);
+    return state[lang];
   }
   async function loadBoth(){
     if(state.loaded) return;
